@@ -876,7 +876,6 @@ async def clientGoBack(callback_query: types.CallbackQuery, state: FSMContext):
 @dp.message_handler(state='*')
 async def start(message: types.Message, state: FSMContext):
     user = get_user_by_id(session, str(message.from_user.id))
-    await dumpDatabase()
     if not user:
         await state.update_data(usr_id=str(message.from_user.id))
         await state.set_state(UserStates.clientRegName.state)
@@ -923,6 +922,10 @@ async def clientConfirmApplication(callback_query: types.CallbackQuery, state: F
         await callback_query.message.edit_text('Кажется, что-то пошло не так..')
 
 
+@dp.callback_query_handler(text='dump-db', state=UserStates.admin)
+async def dumpHandler(callback_query: types.CallbackQuery, state: FSMContext):
+    await dumpDatabase()
+
 
 async def checker():
     events = check_if_up_to_date(session)
@@ -964,8 +967,8 @@ async def notifier(event: models.Event, state: MemoryStorage):
 
 if __name__ == '__main__':
     try:
-        scheduler.add_job(dumpDatabase, 'interval', weeks='2', start_date='2023-12-01 11:00:00', end_date='2030-12-28 11:00:00')
-        scheduler.add_job(checker, 'interval', days='1', start_date='2023-12-01 11:00:00', end_date='2030-12-28 11:00:00')
+        scheduler.add_job(dumpDatabase, 'interval', weeks=2, start_date=datetime.strptime('2023-12-01 11:00:00', '%Y-%m-%d %H:%M:%S'), end_date=datetime.strptime('2030-12-28 11:00:00', '%Y-%m-%d %H:%M:%S'))
+        scheduler.add_job(checker, 'interval', days=1, start_date=datetime.strptime('2023-12-01 11:00:00', '%Y-%m-%d %H:%M:%S'), end_date=datetime.strptime('2030-12-28 11:00:00', '%Y-%m-%d %H:%M:%S'))
         scheduler.start()
         executor.start_polling(dp, skip_updates=True)
     except (KeyboardInterrupt, SystemExit):

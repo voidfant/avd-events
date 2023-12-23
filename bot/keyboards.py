@@ -36,8 +36,9 @@ class AdminStartKeyboard:
     btn3 = InlineKeyboardButton('Изменить мероприятие', callback_data='edit-event')
     btn4 = InlineKeyboardButton('Управлять персоналом', callback_data='control-emps')
     btn5 = InlineKeyboardButton('Календарь мероприятий', callback_data='all-events')
+    btn6 = InlineKeyboardButton('Резервная копия базы', callback_data='dump-db')
 
-    markup.add(btn1, btn2, btn3, btn4, btn5)
+    markup.add(btn1, btn2, btn3, btn4, btn5, btn6)
 
 
 class ParseDatesKeyboard:
