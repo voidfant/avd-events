@@ -499,7 +499,7 @@ async def adminAwaitEmpName(message: types.Message, state: FSMContext):
 @dp.callback_query_handler(text='confirm-emp-reg', state=UserStates.adminAwaitEmpName)
 async def confirmEmpName(callback_query: types.CallbackQuery, state: FSMContext):
     empData = await state.get_data()
-    if register_user(session, empData['emp_id'], empData['emp_name'], 'emp'):
+    if register_user(session, empData['emp_id'], empData['emp_name'], '', 'emp'):
         await callback_query.message.answer("Сотрудник добавлен!", reply_markup=AdminStartKeyboard.markup)
         await state.update_data(emp_id='')
         await state.update_data(emp_name='')
