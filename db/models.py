@@ -5,29 +5,6 @@ from db.database import Base
 # from database import Base
 
 
-# class Manager(Base):
-#     __tablename__ = "managers"
-
-#     id = Column(String, autoincrement=False, primary_key=True, index=True)
-#     role = Column(String, index=True, nullable=False)
-#     name = Column(String, index=True, nullable=False)
-
-
-# class Application(Base):
-#     __tablename__ = "applications"
-
-#     id = Column(Integer, primary_key=True, index=True)
-#     kind = Column(String, index=True)
-#     client_name = Column(String, index=True)
-#     phone = Column(String, unique=True, index=True)
-#     email = Column(String, unique=True, index=True, nullable=True)
-#     client_comment = Column(String, nullable=True)
-#     manager_comment = Column(String, nullable=True)
-#     selected_apartment = Column(String, nullable=True)
-#     manager_id = Column(Integer, ForeignKey(Manager.id, ondelete="CASCADE"))
-#     time_created = Column(DateTime(timezone=True), server_default=func.now())
-
-
 class User(Base):
     __tablename__ = "users"
 

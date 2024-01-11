@@ -23,6 +23,8 @@ def dump_table(db: Session, table: str, filename: str) -> bool:
     except Exception as e:
         logging.log(e, logging.ERROR)
         return 0
+    finally:
+        db.close()
 
 
 def check_if_up_to_date(db: Session) -> list:
@@ -30,38 +32,38 @@ def check_if_up_to_date(db: Session) -> list:
     today = date.today()
     result = []
     for i in events:
-        if today - i.date == timedelta(days=1):
+        if today - i.date >= timedelta(days=1):
             result.append([i, 0])
         elif today - i.date == timedelta(days=-1):
             result.append([i, 2])
         else:
             result.append([i, 1])
-    
+    db.close()
     return result
 
 
 def get_all_events(db: Session) -> list:
     result = [x.Event for x in db.execute(select(models.Event))]
-
+    db.close()
     return result 
 
 
 def get_all_classes(db: Session) -> list:
     result = [x.ClassEvent for x in db.execute(select(models.ClassEvent))]
-
+    db.close()
     return result
 
 
 def get_all_public_events(db: Session) -> list:
     result = [x.Event for x in db.execute(select(models.Event)
                                           .where(models.Event.isPublic))]
-
+    db.close()
     return result 
 
 def get_event_by_id(db: Session, event_id: int) -> models.Event:
     result = db.execute(select(models.Event)
                         .where(models.Event.id == event_id)).one()
-    
+    db.close()
     return result.Event
 
 
@@ -72,39 +74,61 @@ def get_class_by_id(db: Session, class_id: int) -> models.ClassEvent | None:
         return result.ClassEvent
     except Exception as e:
         return None
+    finally:
+        db.close()
 
 def get_events_by_date(db: Session, event_date: date) -> list:
     result = [x.Event for x in db.execute(select(models.Event)
                                           .filter_by(date=event_date))]
-
+    db.close()
     return result
 
-def get_events_by_date_and_platform(db: Session, event_date: date, platform: str) -> list:
-    result = [x.Event for x in db.execute(select(models.Event)
-                                          .filter_by(date=event_date)
-                                          .filter_by(platform=platform))]
+def get_events_by_date_and_platform(db: Session, event_date: date, platform: str) -> list | None:
+    try:
+        result = [x.Event for x in db.execute(select(models.Event)
+                                            .filter_by(date=event_date)
+                                            .filter_by(platform=platform))]
+        return result
+    except Exception as e:
+        return None
+    finally:
+        db.close()
+    
 
-    return result
+def get_public_events_by_date_and_platform(db: Session, event_date: date, platform: str) -> list | None:
+    try:
+        result = [x.Event for x in db.execute(select(models.Event)
+                                            .filter_by(date=event_date)
+                                            .filter_by(platform=platform)
+                                            .where(models.Event.isPublic == True))]
+        return result
+    except Exception as e:
+        logging.log(logging.ERROR, e)
+        return None
+    finally:
+        db.close()
 
-def get_public_events_by_date_and_platform(db: Session, event_date: date, platform: str) -> list:
-    result = [x.Event for x in db.execute(select(models.Event)
-                                          .filter_by(date=event_date)
-                                          .filter_by(platform=platform)
-                                          .where(models.Event.isPublic == True))]
+def get_all_admins(db: Session) -> list | None:
+    try:
+        result = [x.User for x in db.execute(select(models.User)
+                                              .where(models.User.role == 'adm'))]
+        return result
+    except Exception as e:
+        logging.log(logging.ERROR, e)
+        return None
+    finally:
+        db.close()
 
-    return result
-
-def get_all_admins(db: Session) -> list:
-    result = [x.User for x in db.execute(select(models.User)
-                                          .where(models.User.role == 'adm'))]
-
-    return result
-
-def get_all_emps(db: Session) -> list:
-    result = [x.User for x in db.execute(select(models.User)
-                                          .where(models.User.role == 'emp'))]
-
-    return result
+def get_all_emps(db: Session) -> list | None:
+    try:
+        result = [x.User for x in db.execute(select(models.User)
+                                            .where(models.User.role == 'emp'))]
+        return result
+    except Exception as e:
+        logging.log(logging.ERROR, e)
+        return None
+    finally:
+        db.close()
 
 def get_user_by_id(db: Session, user_id: str) -> models.User | None:
     try:    
@@ -114,6 +138,8 @@ def get_user_by_id(db: Session, user_id: str) -> models.User | None:
     except Exception as e:
         logging.log(logging.ERROR, e)
         return None
+    finally:
+        db.close()
     
 
 def get_application_by_id(db: Session, application_id: int) -> models.Application | None:
@@ -124,6 +150,8 @@ def get_application_by_id(db: Session, application_id: int) -> models.Applicatio
     except Exception as e:
         logging.log(logging.ERROR, e)
         return None
+    finally:
+        db.close()
 
 
 def get_applications_by_applicant(db: Session, user_id: str) -> list | None:
@@ -134,6 +162,8 @@ def get_applications_by_applicant(db: Session, user_id: str) -> list | None:
     except Exception as e:
         logging.log(logging.ERROR, e)
         return None
+    finally:
+        db.close()
 
 def get_users_by_event(db: Session, event_id: int) -> list | None:
     try:
@@ -148,6 +178,8 @@ def get_users_by_event(db: Session, event_id: int) -> list | None:
     except Exception as e:
         logging.log(logging.ERROR, e)
         return None
+    finally:
+        db.close()
 
 
 def get_not_confirmed_applications_by_event(db: Session, event_id: int) -> list | None:
@@ -166,6 +198,8 @@ def get_not_confirmed_applications_by_event(db: Session, event_id: int) -> list 
     except Exception as e:
         logging.log(logging.ERROR, e)
         return None
+    finally:
+        db.close()
 
 
 def get_applications_by_event(db: Session, event_id: int) -> list | None:
@@ -183,6 +217,8 @@ def get_applications_by_event(db: Session, event_id: int) -> list | None:
     except Exception as e:
         logging.log(logging.ERROR, e)
         return None
+    finally:
+        db.close()
 
 
 def get_events_by_applications(db: Session, user_id: str) -> list | None:
@@ -194,10 +230,17 @@ def get_events_by_applications(db: Session, user_id: str) -> list | None:
     except Exception as e:
         logging.log(logging.ERROR, e)
         return None
+    finally:
+        db.close()
 
 def get_latest_event_record(db: Session) -> models.Event:
     result = db.query(models.Event).order_by(models.Event.id.desc()).first()
+    db.close()
+    return result
 
+def get_latest_class_record(db: Session) -> models.ClassEvent:
+    result = db.query(models.ClassEvent).order_by(models.ClassEvent.id.desc()).first()
+    db.close()
     return result
     
 def get_subscriptions_by_platform(db: Session, platform: str) -> list | None:
@@ -208,6 +251,8 @@ def get_subscriptions_by_platform(db: Session, platform: str) -> list | None:
     except Exception as e:
         logging.log(logging.ERROR, e)
         return None
+    finally:
+        db.close()
 
 def get_subscriptions_by_id(db: Session, user_id: str) -> list | None:
     try:
@@ -217,6 +262,8 @@ def get_subscriptions_by_id(db: Session, user_id: str) -> list | None:
     except Exception as e:
         logging.log(logging.ERROR, e)
         return None
+    finally:
+        db.close()
 
 
 def get_vacant_amount_by_event_id(db: Session, event_id: int) -> int | None:
@@ -229,6 +276,8 @@ def get_vacant_amount_by_event_id(db: Session, event_id: int) -> int | None:
     except Exception as e:
         logging.log(logging.ERROR, e)
         return None
+    finally:
+        db.close()
 
 def edit_event(db: Session, event_id: int, event_name: str, client_name: str, event_platform: int, event_quota: int, event_description: str, event_datetime: datetime, event_isPublic: bool) -> bool:
     try:
@@ -309,7 +358,7 @@ def register_user(db: Session, id: str, name: str, phone: str, role: str) -> boo
     finally:
         db.close()
 
-def register_event(db: Session, event_name: str, client_name: str, event_platform: int, event_quota: int, event_description: str, event_datetime: datetime, event_isPublic: bool) -> bool:
+def register_event(db: Session, event_name: str, client_name: str, event_platform: int, event_quota: int, event_description: str, event_datetime: datetime, event_isPublic: bool, class_id: int | None = None) -> bool:
     try:
         db.add(models.Event(
             name=event_name,
@@ -320,7 +369,8 @@ def register_event(db: Session, event_name: str, client_name: str, event_platfor
             # timestamp=event_datetime,
             time=event_datetime.time(),
             date=event_datetime.date(),
-            isPublic=event_isPublic
+            isPublic=event_isPublic,
+            class_id=class_id
         ))
         db.commit()
         return 1

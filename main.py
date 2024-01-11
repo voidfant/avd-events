@@ -163,7 +163,7 @@ async def confirmEventAdd(callback_query: types.CallbackQuery, state: FSMContext
         if not eventData['event_name'] or not eventData['event_platform'] or not eventData['event_quota'] or not eventData['event_description']:
             await callback_query.message.answer('Заполните все поля!', reply_markup=types.ReplyKeyboardRemove())
             return
-        res = register_class(db=session,
+        res_reg = register_class(db=session,
                              class_name=eventData['event_name'],
                              class_platform=eventData['event_platform'],
                              class_quota=eventData['event_quota'],
@@ -181,10 +181,11 @@ async def confirmEventAdd(callback_query: types.CallbackQuery, state: FSMContext
         await state.update_data(admin_mode='reg')
         await state.update_data(class_weekdays=[0 for _ in range(7)])
         await state.update_data(class_intervals=[0 for _ in range(3)])
-        
-        if res:
+        res_sched = await schedule_class(session=session, class_id=get_latest_class_record(session).id, scheduler=scheduler, initial=True)
+        if res_reg and res_sched:
             await callback_query.message.answer('Мероприятие добавлено!', reply_markup=AdminStartKeyboard.markup)
         else:
+            logging.log(logging.ERROR, f'{res_reg} || {res_sched}')
             await callback_query.message.answer('Что-то пошло не так.. Попробуйте еще раз', reply_markup=AdminStartKeyboard.markup)        
         
         return
@@ -1046,17 +1047,17 @@ async def dumpHandler(callback_query: types.CallbackQuery, state: FSMContext):
     await dumpDatabase(bot, session)
 
 
-# if __name__ == '__main__':
-#     try:
-#         # scheduler.add_job(dumpDatabase, 'interval', args=[bot, session], weeks=2, start_date=datetime.strptime('2023-12-01 11:00:00', '%Y-%m-%d %H:%M:%S'), end_date=datetime.strptime('2030-12-28 11:00:00', '%Y-%m-%d %H:%M:%S'))
-#         scheduler.add_job(dumpDatabase, CronTrigger.from_crontab('0 11 1,14 * *'), args=[bot, session], id='dumpDB')
-#         # scheduler.add_job(checker, 'interval', args=[bot, session], days=1, start_date=datetime.strptime('2023-12-01 11:00:00', '%Y-%m-%d %H:%M:%S'), end_date=datetime.strptime('2030-12-28 11:00:00', '%Y-%m-%d %H:%M:%S'))
-#         scheduler.add_job(checker, CronTrigger.from_crontab('0 11 * * *'), args=[bot, session], id='checker')
-#         scheduler.start()
-#         executor.start_polling(dp, skip_updates=True)
-#     except (KeyboardInterrupt, SystemExit):
-#         scheduler.shutdown()
-
-
 if __name__ == '__main__':
-    print(get_all_classes(session))
+    try:
+        # scheduler.add_job(dumpDatabase, 'interval', args=[bot, session], weeks=2, start_date=datetime.strptime('2023-12-01 11:00:00', '%Y-%m-%d %H:%M:%S'), end_date=datetime.strptime('2030-12-28 11:00:00', '%Y-%m-%d %H:%M:%S'))
+        scheduler.add_job(dumpDatabase, CronTrigger.from_crontab('0 11 1,14 * *'), args=[bot, session], id='dumpDB')
+        # scheduler.add_job(checker, 'interval', args=[bot, session], days=1, start_date=datetime.strptime('2023-12-01 11:00:00', '%Y-%m-%d %H:%M:%S'), end_date=datetime.strptime('2030-12-28 11:00:00', '%Y-%m-%d %H:%M:%S'))
+        scheduler.add_job(checker, CronTrigger.from_crontab('0 11 * * *'), args=[bot, session], id='checker')
+        scheduler.start()
+        executor.start_polling(dp, skip_updates=True)
+    except (KeyboardInterrupt, SystemExit):
+        scheduler.shutdown()
+
+
+# if __name__ == '__main__':
+#     print(get_current_week(datetime.utcnow().date() + timedelta(weeks=1)))
