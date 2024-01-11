@@ -32,11 +32,20 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(String, autoincrement=False, primary_key=True, index=True)
-    # role = Column(Boolean, server_default="false")
     role = Column(VARCHAR(3), nullable=False)
     name = Column(String, index=False, nullable=False)
     phone = Column(String, index=False, nullable=True)
 
+class ClassEvent(Base):
+    __tablename__ = "classes"
+
+    id = Column(Integer, autoincrement=True, primary_key=True, index=True)
+    name = Column(String, index=False, nullable=True)
+    platform = Column(VARCHAR(4), index=False, nullable=False)
+    quota = Column(SmallInteger, index=False, nullable=True)
+    description = Column(Text, nullable=True, index=False)
+    weekdays = Column(VARCHAR(7), index=False, nullable=False)
+    intervals = Column(VARCHAR(3), index=False, nullable=False)
 
 class Event(Base):
     __tablename__ = "events"
@@ -51,7 +60,7 @@ class Event(Base):
     time = Column(Time, nullable=True)
     date = Column(Date, nullable=True)
     isPublic = Column(Boolean, nullable=False)
-
+    class_id = Column(Integer, ForeignKey(ClassEvent.id, ondelete="CASCADE"), nullable=True, index=False)
 
 class Application(Base):
     __tablename__ = "applications"

@@ -31,7 +31,8 @@ class AdminConfirmEmpAdd:
 
 class AdminStartKeyboard:
     markup = InlineKeyboardMarkup(row_width=1)
-    btn1 = InlineKeyboardButton('Добавить мероприятие', callback_data='select-event-type')
+    # btn1 = InlineKeyboardButton('Добавить мероприятие', callback_data='select-event-type')
+    btn1 = InlineKeyboardButton('Добавить мероприятие', callback_data='select-event-repeat')
     btn2 = InlineKeyboardButton('Удалить мероприятие', callback_data='del-event')
     btn3 = InlineKeyboardButton('Изменить мероприятие', callback_data='edit-event')
     btn4 = InlineKeyboardButton('Управлять персоналом', callback_data='control-emps')
@@ -177,6 +178,7 @@ class AdminSelectTypeKeyboard:
     markup = InlineKeyboardMarkup(row_width=1)
     btn1 = InlineKeyboardButton('Закрытое мероприятие', callback_data='add-private-event')
     btn2 = InlineKeyboardButton('Открытое мероприятие', callback_data='add-public-event')
+    # btn2 = InlineKeyboardButton('Открытое мероприятие', callback_data='select-event-repeat')
 
     markup.add(btn1, btn2)
 
@@ -307,3 +309,90 @@ class ClientSendConfirm:
                         InlineKeyboardButton('Отменить заявку', callback_data=f'decline-{application_id}'))
         
         
+
+class AdminSelectEventRepeat:
+    markup = InlineKeyboardMarkup(row_width=2)
+    markup.add(InlineKeyboardButton('Занятие', callback_data='is-class'),
+               InlineKeyboardButton('Мероприятие', callback_data='is-event'),
+               InlineKeyboardButton('Отмена', callback_data='admin-cancel'))
+    
+
+class AdminAddIntervalEvent:
+    markup = InlineKeyboardMarkup(row_width=1)
+    btn1 = InlineKeyboardButton('Ввести название мероприятия', callback_data='enter-event-name')
+    btn3 = InlineKeyboardButton('Выбрать площадку', callback_data='enter-event-platform')
+    btn4 = InlineKeyboardButton('Ввести количество гостей', callback_data='enter-event-quota')
+    btn5 = InlineKeyboardButton('Ввести описание', callback_data='enter-event-description')
+    btn6 = InlineKeyboardButton('Выбрать временные окна и дни недели', callback_data='select-event-datetime')
+    btn8 = InlineKeyboardButton('Подтвердить', callback_data='confirm-event-reg')
+    btn9 = InlineKeyboardButton('Отмена', callback_data='admin-cancel')
+
+    markup.add(btn1, btn6, btn3, btn4, btn5)
+    markup.row(btn8, btn9)
+
+
+class AdminEditIntervalEvent:
+    markup = InlineKeyboardMarkup(row_width=1)
+    btn1 = InlineKeyboardButton('Ввести название мероприятия', callback_data='enter-event-name')
+    btn3 = InlineKeyboardButton('Выбрать площадку', callback_data='enter-event-platform')
+    btn4 = InlineKeyboardButton('Ввести количество гостей', callback_data='enter-event-quota')
+    btn5 = InlineKeyboardButton('Ввести описание', callback_data='enter-event-description')
+    btn6 = InlineKeyboardButton('Выбрать временные окна и дни недели', callback_data='select-event-datetime')
+    btn8 = InlineKeyboardButton('Подтвердить', callback_data='confirm-event-edit')
+    btn9 = InlineKeyboardButton('Отмена', callback_data='admin-cancel')
+
+    markup.add(btn1, btn6, btn3, btn4, btn5)
+    markup.row(btn8, btn9)
+
+
+class AdminSelectIntervals:
+    def __init__(self, intervals):
+        self.markup = InlineKeyboardMarkup(row_width=1)
+        # ticks = {1: '❌', 2: '❌', 3: '❌'}
+        ticks = []
+        # for i in ticks.keys():
+        #     if i in eventData['class_intervals']:
+        #         ticks[i] = '✅'
+        for i in intervals:
+            if i:
+                ticks.append('✅')
+            else:
+                ticks.append('❌')
+        
+        self.markup.add(InlineKeyboardButton(f'{ticks[0]} 14:00 - 16:00', callback_data='select-interval-0'),
+                InlineKeyboardButton(f'{ticks[1]} 16:00 - 18:00', callback_data='select-interval-1'),
+                InlineKeyboardButton(f'{ticks[2]} 18:00 - 20:00', callback_data='select-interval-2'),
+                InlineKeyboardButton('Готово', callback_data='select-intervals-done'))
+
+
+class AdminSelectWeekdays:
+    def __init__(self, weekdays):
+        self.markup = InlineKeyboardMarkup(row_width=4)
+        # ticks = {1: '❌', 2: '❌', 3: '❌',
+        #          4: '❌', 5: '❌', 6: '❌',
+        #          7: '❌'}
+        ticks = []
+        # for i in ticks.keys():
+        #     if i in eventData['class_weekdays']:
+        #         ticks[i] = '✅'
+        for i in weekdays:
+            if i:
+                ticks.append('✅')
+            else:
+                ticks.append('❌')
+
+        self.markup.add(InlineKeyboardButton(f'{ticks[0]} ПН', callback_data='select-weekday-0'),
+                InlineKeyboardButton(f'{ticks[1]} ВТ', callback_data='select-weekday-1'),
+                InlineKeyboardButton(f'{ticks[2]} СР', callback_data='select-weekday-2'),
+                InlineKeyboardButton(f'{ticks[3]} ЧТ', callback_data='select-weekday-3'),
+                InlineKeyboardButton(f'{ticks[4]} ПТ', callback_data='select-weekday-4'),
+                InlineKeyboardButton(f'{ticks[5]} СБ', callback_data='select-weekday-5'),
+                InlineKeyboardButton(f'{ticks[6]} ВС', callback_data='select-weekday-6'),
+                InlineKeyboardButton('Готово', callback_data='select-weekdays-done'))
+
+class AdminSelectIntervalOrWeekdays:
+    markup = InlineKeyboardMarkup(row_width=1)
+    markup.add(InlineKeyboardButton('Выбрать временные окна', callback_data='select-intervals'),
+               InlineKeyboardButton('Выбрать дни недели', callback_data='select-weekdays'),
+               InlineKeyboardButton('Назад', callback_data='confirm-event-field'))
+

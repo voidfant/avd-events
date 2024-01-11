@@ -1,6 +1,7 @@
 # from asyncio import sleep, run
 import logging 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
 
 
 from aiogram import Bot, Dispatcher, executor, types
@@ -15,6 +16,7 @@ import os
 from dotenv import load_dotenv, find_dotenv
 
 from bot.keyboards import *
+from tools import *
 
 try:
     from db.database import session
@@ -39,6 +41,8 @@ scheduler = AsyncIOScheduler(timezone='Europe/Moscow')
 platforms = {'verh': 'Верхние Лихоборы', 'voyk': 'Войковская', 'zhiv': '\"Живописно\"', 'musm': 'Музей Света и Цвета', '': ''}
 event_isPublic = {1: 'Открытое', 0: 'Закрытое', '': ''}
 event_reverseIsPublic = {'public': 1, 'private': 0}
+weekdays_arr = ['ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ', 'СБ', 'ВС']
+intervals_arr = ['14:00 - 16:00', '16:00 - 18:00', '18:00 - 20:00']
 
 
 class UserStates(StatesGroup):
@@ -57,6 +61,8 @@ class UserStates(StatesGroup):
     adminSearchSelectPlatform = State()
     adminAwaitSelectEmpToDel = State()
     adminSeekApplications = State()
+    AdminAwaitRepeatSelect = State()
+    AdminSelectInterval = State()
     client = State()
     clientRegName = State()
     clientRegPhone = State()
@@ -85,7 +91,9 @@ class UserStates(StatesGroup):
                                                                 UserStates.adminAwaitEmpName,
                                                                 UserStates.empAwaitSelectToView,
                                                                 UserStates.adminAwaitSelectEmpToDel,
-                                                                UserStates.adminSeekApplications
+                                                                UserStates.adminSeekApplications,
+                                                                UserStates.AdminAwaitRepeatSelect,
+                                                                UserStates.AdminSelectInterval
                                                                 ])
 async def goBackAdmin(callback_query: types.CallbackQuery, state: FSMContext):
     await state.update_data(event_id='')
@@ -101,45 +109,86 @@ async def goBackAdmin(callback_query: types.CallbackQuery, state: FSMContext):
     await callback_query.message.answer("Добро пожаловать в админ-панель", reply_markup=AdminStartKeyboard.markup)
 
 
-@dp.callback_query_handler(text='confirm-event-field', state=[UserStates.admin, 
-                                                              UserStates.adminAwaitClientName, 
-                                                              UserStates.adminAwaitDateTime, 
-                                                              UserStates.adminAwaitDescription, 
-                                                              UserStates.adminAwaitEventName,
-                                                              UserStates.adminAwaitQuota,
-                                                              UserStates.adminAwaitSelectToDel,
-                                                              UserStates.adminAwaitType,
-                                                              UserStates.adminAwaitPlatform,
-                                                              UserStates.adminAwaitSelectToEdit,
-                                                              UserStates.adminAwaitForwardMsg,
-                                                              UserStates.adminAwaitEmpName,
-                                                              UserStates.empAwaitSelectToView,
-                                                              UserStates.adminAwaitSelectEmpToDel,
-                                                              UserStates.adminSeekApplications
-                                                              ])
+@dp.callback_query_handler(lambda c: c.data in ('confirm-event-field', 'select-interval-done'),
+                            state=[UserStates.admin, 
+                            UserStates.adminAwaitClientName, 
+                            UserStates.adminAwaitDateTime, 
+                            UserStates.adminAwaitDescription, 
+                            UserStates.adminAwaitEventName,
+                            UserStates.adminAwaitQuota,
+                            UserStates.adminAwaitSelectToDel,
+                            UserStates.adminAwaitType,
+                            UserStates.adminAwaitPlatform,
+                            UserStates.adminAwaitSelectToEdit,
+                            UserStates.adminAwaitForwardMsg,
+                            UserStates.adminAwaitEmpName,
+                            UserStates.empAwaitSelectToView,
+                            UserStates.adminAwaitSelectEmpToDel,
+                            UserStates.adminSeekApplications,
+                            UserStates.AdminAwaitRepeatSelect,
+                            UserStates.AdminSelectInterval 
+                            ])
 async def confirmEventField(callback_query: types.CallbackQuery, state: FSMContext):
     eventData = await state.get_data()
     if eventData['admin_mode'] == 'reg':
-        if eventData['event_isPublic']:
-            await callback_query.message.edit_text(f"Карточка мероприятия:\n\nНазвание мероприятия: {eventData['event_name']}\nДата и время проведения мероприятия: {eventData['event_datetime']}\nПлощадка проведения: {platforms[eventData['event_platform']]}\nКоличество гостей: {eventData['event_quota']}\nОписание мероприятия: {eventData['event_description']}\nТип мероприятия: {event_isPublic[eventData['event_isPublic']]}", 
-                                                    reply_markup=AdminAddPublicKeyboard.markup)   
+        if eventData['isEvent']:
+            if eventData['event_isPublic']:
+                await callback_query.message.edit_text(f"Карточка мероприятия:\n\nНазвание мероприятия: {eventData['event_name']}\nДата и время проведения мероприятия: {eventData['event_datetime']}\nПлощадка проведения: {platforms[eventData['event_platform']]}\nКоличество гостей: {eventData['event_quota']}\nОписание мероприятия: {eventData['event_description']}\nТип мероприятия: {event_isPublic[eventData['event_isPublic']]}", 
+                                                        reply_markup=AdminAddPublicKeyboard.markup)   
+            else:
+                await callback_query.message.edit_text(f"Карточка мероприятия:\n\nИмя клиента: {eventData['client_name']}\nДата и время проведения мероприятия: {eventData['event_datetime']}\nПлощадка проведения: {platforms[eventData['event_platform']]}\nОписание мероприятия: {eventData['event_description']}\n\nТип мероприятия: {event_isPublic[eventData['event_isPublic']]}", 
+                                                        reply_markup=AdminAddPrivateKeyboard.markup)
         else:
-            await callback_query.message.edit_text(f"Карточка мероприятия:\n\nИмя клиента: {eventData['client_name']}\nДата и время проведения мероприятия: {eventData['event_datetime']}\nПлощадка проведения: {platforms[eventData['event_platform']]}\nОписание мероприятия: {eventData['event_description']}\n\nТип мероприятия: {event_isPublic[eventData['event_isPublic']]}", 
-                                                    reply_markup=AdminAddPrivateKeyboard.markup)
+            await callback_query.message.edit_text(f"Карточка мероприятия:\n\nНазвание мероприятия: {eventData['event_name']}\nВременные окна и дни недели: {serialize_intervals(eventData['class_intervals'])};{serialize_weekdays(eventData['class_weekdays'])}\nПлощадка проведения: {platforms[eventData['event_platform']]}\nКоличество гостей: {eventData['event_quota']}\nОписание мероприятия: {eventData['event_description']}\nТип мероприятия: {event_isPublic[eventData['event_isPublic']]}", 
+                                        reply_markup=AdminAddIntervalEvent.markup)
 
     elif eventData['admin_mode'] == 'edit':
-        if eventData['event_isPublic']:
-            await callback_query.message.edit_text(f"Карточка мероприятия:\n\nНазвание мероприятия: {eventData['event_name']}\nДата и время проведения мероприятия: {eventData['event_datetime']}\nПлощадка проведения: {platforms[eventData['event_platform']]}\nКоличество гостей: {eventData['event_quota']}\nОписание мероприятия: {eventData['event_description']}\nТип мероприятия: {event_isPublic[eventData['event_isPublic']]}", 
-                                                   reply_markup=AdminEditPublicKeyboard.markup)   
+        if eventData['isEvent']:
+            if eventData['event_isPublic']:
+                await callback_query.message.edit_text(f"Карточка мероприятия:\n\nНазвание мероприятия: {eventData['event_name']}\nДата и время проведения мероприятия: {eventData['event_datetime']}\nПлощадка проведения: {platforms[eventData['event_platform']]}\nКоличество гостей: {eventData['event_quota']}\nОписание мероприятия: {eventData['event_description']}\nТип мероприятия: {event_isPublic[eventData['event_isPublic']]}", 
+                                                    reply_markup=AdminEditPublicKeyboard.markup)   
+            else:
+                await callback_query.message.edit_text(f"Карточка мероприятия:\n\nИмя клиента: {eventData['client_name']}\nДата и время проведения мероприятия: {eventData['event_datetime']}\nПлощадка проведения: {platforms[eventData['event_platform']]}\nОписание мероприятия: {eventData['event_description']}\n\nТип мероприятия: {event_isPublic[eventData['event_isPublic']]}", 
+                                                    reply_markup=AdminEditPrivateKeyboard.markup)
         else:
-            await callback_query.message.edit_text(f"Карточка мероприятия:\n\nИмя клиента: {eventData['client_name']}\nДата и время проведения мероприятия: {eventData['event_datetime']}\nПлощадка проведения: {platforms[eventData['event_platform']]}\nОписание мероприятия: {eventData['event_description']}\n\nТип мероприятия: {event_isPublic[eventData['event_isPublic']]}", 
-                                                   reply_markup=AdminEditPrivateKeyboard.markup)
+            await callback_query.message.edit_text(f"Карточка мероприятия:\n\nНазвание мероприятия: {eventData['event_name']}\nВременные окна и дни недели: {serialize_intervals(eventData['class_intervals'])};{serialize_weekdays(eventData['class_weekdays'])}\nПлощадка проведения: {platforms[eventData['event_platform']]}\nКоличество гостей: {eventData['event_quota']}\nОписание мероприятия: {eventData['event_description']}\nТип мероприятия: {event_isPublic[eventData['event_isPublic']]}", 
+                                        reply_markup=AdminEditIntervalEvent.markup)
 
     await state.set_state(UserStates.admin.state)
 
 @dp.callback_query_handler(text='confirm-event-reg', state=UserStates.admin)
 async def confirmEventAdd(callback_query: types.CallbackQuery, state: FSMContext):
     eventData = await state.get_data()
+    if not eventData['isEvent']:
+        if not eventData['event_name'] or not eventData['event_platform'] or not eventData['event_quota'] or not eventData['event_description']:
+            await callback_query.message.answer('Заполните все поля!', reply_markup=types.ReplyKeyboardRemove())
+            return
+        res = register_class(db=session,
+                             class_name=eventData['event_name'],
+                             class_platform=eventData['event_platform'],
+                             class_quota=eventData['event_quota'],
+                             class_description=eventData['event_description'],
+                             class_weekdays=serialize_weekdays(eventData['class_weekdays'], 1),
+                             class_intervals=serialize_weekdays(eventData['class_intervals'], 1))
+        await state.update_data(event_id='')
+        await state.update_data(event_name='')
+        await state.update_data(client_name='')
+        await state.update_data(event_platform='')
+        await state.update_data(event_quota='')
+        await state.update_data(event_description='')
+        await state.update_data(event_datetime='')
+        await state.update_data(event_isPublic='')
+        await state.update_data(admin_mode='reg')
+        await state.update_data(class_weekdays=[0 for _ in range(7)])
+        await state.update_data(class_intervals=[0 for _ in range(3)])
+        
+        if res:
+            await callback_query.message.answer('Мероприятие добавлено!', reply_markup=AdminStartKeyboard.markup)
+        else:
+            await callback_query.message.answer('Что-то пошло не так.. Попробуйте еще раз', reply_markup=AdminStartKeyboard.markup)        
+        
+        return
+
     if eventData['event_isPublic'] == True:
         if not eventData['event_name'] or not eventData['event_platform'] or not eventData['event_quota'] or not eventData['event_description'] or not eventData['event_datetime']:
             await callback_query.message.answer('Заполните все поля!', reply_markup=types.ReplyKeyboardRemove())
@@ -166,7 +215,7 @@ async def confirmEventAdd(callback_query: types.CallbackQuery, state: FSMContext
                          event_isPublic=eventData['event_isPublic']
                          )
     if eventData['event_isPublic'] == True:
-        await notifier(get_latest_event_record(session), storage)
+        await notifier(bot, session, get_latest_event_record(session), storage)
     await state.update_data(event_id='')
     await state.update_data(event_name='')
     await state.update_data(client_name='')
@@ -234,40 +283,85 @@ async def adminRememberTypeChoice(callback_query: types.CallbackQuery, state: FS
     await state.update_data(event_isPublic=True if status == 'public' else False)
     eventData = await state.get_data()
     if eventData['admin_mode'] == 'reg':
-        if eventData['event_isPublic']:
-            await callback_query.message.edit_text(f"Карточка мероприятия:\n\nНазвание мероприятия: {eventData['event_name']}\nДата и время проведения мероприятия: {eventData['event_datetime']}\nПлощадка проведения: {platforms[eventData['event_platform']]}\nКоличество гостей: {eventData['event_quota']}\nОписание мероприятия: {eventData['event_description']}\nТип мероприятия: {event_isPublic[eventData['event_isPublic']]}", 
-                                                    reply_markup=AdminAddPublicKeyboard.markup)   
+        if eventData['isEvent']:
+            if eventData['event_isPublic']:
+                await callback_query.message.edit_text(f"Карточка мероприятия:\n\nНазвание мероприятия: {eventData['event_name']}\nДата и время проведения мероприятия: {eventData['event_datetime']}\nПлощадка проведения: {platforms[eventData['event_platform']]}\nКоличество гостей: {eventData['event_quota']}\nОписание мероприятия: {eventData['event_description']}\nТип мероприятия: {event_isPublic[eventData['event_isPublic']]}", 
+                                                        reply_markup=AdminAddPublicKeyboard.markup)   
+            else:
+                await callback_query.message.edit_text(f"Карточка мероприятия:\n\nИмя клиента: {eventData['client_name']}\nДата и время проведения мероприятия: {eventData['event_datetime']}\nПлощадка проведения: {platforms[eventData['event_platform']]}\nОписание мероприятия: {eventData['event_description']}\n\nТип мероприятия: {event_isPublic[eventData['event_isPublic']]}", 
+                                                        reply_markup=AdminAddPrivateKeyboard.markup)
         else:
-            await callback_query.message.edit_text(f"Карточка мероприятия:\n\nИмя клиента: {eventData['client_name']}\nДата и время проведения мероприятия: {eventData['event_datetime']}\nПлощадка проведения: {platforms[eventData['event_platform']]}\nОписание мероприятия: {eventData['event_description']}\n\nТип мероприятия: {event_isPublic[eventData['event_isPublic']]}", 
-                                                    reply_markup=AdminAddPrivateKeyboard.markup)
-
+            await callback_query.message.edit_text(f"Карточка мероприятия:\n\nНазвание мероприятия: {eventData['event_name']}\nВременные окна и дни недели: {eventData['class_intervals']};{eventData['class_weekdays']}\nПлощадка проведения: {platforms[eventData['event_platform']]}\nКоличество гостей: {eventData['event_quota']}\nОписание мероприятия: {eventData['event_description']}\nТип мероприятия: {event_isPublic[eventData['event_isPublic']]}", 
+                                        reply_markup=AdminAddIntervalEvent.markup)
     elif eventData['admin_mode'] == 'edit':
-        if eventData['event_isPublic']:
-            await callback_query.message.edit_text(f"Карточка мероприятия:\n\nНазвание мероприятия: {eventData['event_name']}\nДата и время проведения мероприятия: {eventData['event_datetime']}\nПлощадка проведения: {platforms[eventData['event_platform']]}\nКоличество гостей: {eventData['event_quota']}\nОписание мероприятия: {eventData['event_description']}\nТип мероприятия: {event_isPublic[eventData['event_isPublic']]}", 
-                                                   reply_markup=AdminEditPublicKeyboard.markup)   
+        if eventData['isEvent']:
+            if eventData['event_isPublic']:
+                await callback_query.message.edit_text(f"Карточка мероприятия:\n\nНазвание мероприятия: {eventData['event_name']}\nДата и время проведения мероприятия: {eventData['event_datetime']}\nПлощадка проведения: {platforms[eventData['event_platform']]}\nКоличество гостей: {eventData['event_quota']}\nОписание мероприятия: {eventData['event_description']}\nТип мероприятия: {event_isPublic[eventData['event_isPublic']]}", 
+                                                    reply_markup=AdminEditPublicKeyboard.markup)   
+            else:
+                await callback_query.message.edit_text(f"Карточка мероприятия:\n\nИмя клиента: {eventData['client_name']}\nДата и время проведения мероприятия: {eventData['event_datetime']}\nПлощадка проведения: {platforms[eventData['event_platform']]}\nОписание мероприятия: {eventData['event_description']}\n\nТип мероприятия: {event_isPublic[eventData['event_isPublic']]}", 
+                                                    reply_markup=AdminEditPrivateKeyboard.markup)
         else:
-            await callback_query.message.edit_text(f"Карточка мероприятия:\n\nИмя клиента: {eventData['client_name']}\nДата и время проведения мероприятия: {eventData['event_datetime']}\nПлощадка проведения: {platforms[eventData['event_platform']]}\nОписание мероприятия: {eventData['event_description']}\n\nТип мероприятия: {event_isPublic[eventData['event_isPublic']]}", 
-                                                   reply_markup=AdminEditPrivateKeyboard.markup)
+            await callback_query.message.edit_text(f"Карточка мероприятия:\n\nНазвание мероприятия: {eventData['event_name']}\nВременные окна и дни недели: {eventData['class_intervals']};{eventData['class_weekdays']}\nПлощадка проведения: {platforms[eventData['event_platform']]}\nКоличество гостей: {eventData['event_quota']}\nОписание мероприятия: {eventData['event_description']}\nТип мероприятия: {event_isPublic[eventData['event_isPublic']]}", 
+                                        reply_markup=AdminEditIntervalEvent.markup)
 
+# @dp.callback_query_handler(lambda c: c.data in ('add-event', 'select-interval-done'), state=UserStates.admin)
+# async def adminAddPrivateEvent(callback_query: types.CallbackQuery, state: FSMContext):
+#     eventData = await state.get_data()
+#     if eventData['admin_mode'] == 'reg':
+#         if eventData['isEvent']:
+#             if eventData['event_isPublic']:
+#                 await callback_query.message.edit_text(f"Карточка мероприятия:\n\nНазвание мероприятия: {eventData['event_name']}\nДата и время проведения мероприятия: {eventData['event_datetime']}\nПлощадка проведения: {platforms[eventData['event_platform']]}\nКоличество гостей: {eventData['event_quota']}\nОписание мероприятия: {eventData['event_description']}\nТип мероприятия: {event_isPublic[eventData['event_isPublic']]}", 
+#                                                         reply_markup=AdminAddPublicKeyboard.markup)   
+#             else:
+#                 await callback_query.message.edit_text(f"Карточка мероприятия:\n\nИмя клиента: {eventData['client_name']}\nДата и время проведения мероприятия: {eventData['event_datetime']}\nПлощадка проведения: {platforms[eventData['event_platform']]}\nОписание мероприятия: {eventData['event_description']}\n\nТип мероприятия: {event_isPublic[eventData['event_isPublic']]}", 
+#                                                         reply_markup=AdminAddPrivateKeyboard.markup)
+#         else:
+#             await callback_query.message.edit_text(f"Карточка мероприятия:\n\nНазвание мероприятия: {eventData['event_name']}\nВременные окна и дни недели: {eventData['class_intervals']};{eventData['class_weekdays']}\nПлощадка проведения: {platforms[eventData['event_platform']]}\nКоличество гостей: {eventData['event_quota']}\nОписание мероприятия: {eventData['event_description']}\nТип мероприятия: {event_isPublic[eventData['event_isPublic']]}", 
+#                                         reply_markup=AdminAddIntervalEvent.markup)
 
-@dp.callback_query_handler(text='add-event', state=UserStates.admin)
-async def adminAddPrivateEvent(callback_query: types.CallbackQuery, state: FSMContext):
+#     elif eventData['admin_mode'] == 'edit':
+#         if eventData['isEvent']:
+#             if eventData['event_isPublic']:
+#                 await callback_query.message.edit_text(f"Карточка мероприятия:\n\nНазвание мероприятия: {eventData['event_name']}\nДата и время проведения мероприятия: {eventData['event_datetime']}\nПлощадка проведения: {platforms[eventData['event_platform']]}\nКоличество гостей: {eventData['event_quota']}\nОписание мероприятия: {eventData['event_description']}\nТип мероприятия: {event_isPublic[eventData['event_isPublic']]}", 
+#                                                     reply_markup=AdminEditPublicKeyboard.markup)   
+#             else:
+#                 await callback_query.message.edit_text(f"Карточка мероприятия:\n\nИмя клиента: {eventData['client_name']}\nДата и время проведения мероприятия: {eventData['event_datetime']}\nПлощадка проведения: {platforms[eventData['event_platform']]}\nОписание мероприятия: {eventData['event_description']}\n\nТип мероприятия: {event_isPublic[eventData['event_isPublic']]}", 
+#                                                     reply_markup=AdminEditPrivateKeyboard.markup)
+#         else:
+#             await callback_query.message.edit_text(f"Карточка мероприятия:\n\nНазвание мероприятия: {eventData['event_name']}\nВременные окна и дни недели: {eventData['class_intervals']};{eventData['class_weekdays']}\nПлощадка проведения: {platforms[eventData['event_platform']]}\nКоличество гостей: {eventData['event_quota']}\nОписание мероприятия: {eventData['event_description']}\nТип мероприятия: {event_isPublic[eventData['event_isPublic']]}", 
+#                                         reply_markup=AdminEditIntervalEvent.markup)
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+@dp.callback_query_handler(lambda c: c.data in ('select-event-datetime', 'select-intervals-done', 'select-weekdays-done'), state=UserStates.admin)
+async def adminSelectWhatToSelect(callback_query: types.CallbackQuery, state: FSMContext):
+    await callback_query.message.edit_text('Выберите вариант.', reply_markup=AdminSelectIntervalOrWeekdays.markup)
+
+@dp.callback_query_handler(lambda c: c.data.startswith('select-interval'), state=UserStates.admin)
+async def adminSelectIntervals(callback_query: types.CallbackQuery, state: FSMContext):
+    # await state.set_state(UserStates.AdminSelectInterval.state)
     eventData = await state.get_data()
-    if eventData['admin_mode'] == 'reg':
-        if eventData['event_isPublic']:
-            await callback_query.message.edit_text(f"Карточка мероприятия:\n\nНазвание мероприятия: {eventData['event_name']}\nДата и время проведения мероприятия: {eventData['event_datetime']}\nПлощадка проведения: {platforms[eventData['event_platform']]}\nКоличество гостей: {eventData['event_quota']}\nОписание мероприятия: {eventData['event_description']}\nТип мероприятия: {event_isPublic[eventData['event_isPublic']]}", 
-                                                    reply_markup=AdminAddPublicKeyboard.markup)   
-        else:
-            await callback_query.message.edit_text(f"Карточка мероприятия:\n\nИмя клиента: {eventData['client_name']}\nДата и время проведения мероприятия: {eventData['event_datetime']}\nПлощадка проведения: {platforms[eventData['event_platform']]}\nОписание мероприятия: {eventData['event_description']}\n\nТип мероприятия: {event_isPublic[eventData['event_isPublic']]}", 
-                                                    reply_markup=AdminAddPrivateKeyboard.markup)
+    if callback_query.data == 'select-intervals':
+        # await state.update_data(class_intervals=[])
+        await callback_query.message.edit_text('Выберите окна.', reply_markup=AdminSelectIntervals(eventData['class_intervals']).markup)
+        return
+    eventData['class_intervals'][int(callback_query.data[-1])] = not eventData['class_intervals'][int(callback_query.data[-1])]
+    new_intervals = eventData['class_intervals']
+    await state.update_data(class_intervals=new_intervals)
+    await callback_query.message.edit_text('Выберите окна.', reply_markup=AdminSelectIntervals(new_intervals).markup)
 
-    elif eventData['admin_mode'] == 'edit':
-        if eventData['event_isPublic']:
-            await callback_query.message.edit_text(f"Карточка мероприятия:\n\nНазвание мероприятия: {eventData['event_name']}\nДата и время проведения мероприятия: {eventData['event_datetime']}\nПлощадка проведения: {platforms[eventData['event_platform']]}\nКоличество гостей: {eventData['event_quota']}\nОписание мероприятия: {eventData['event_description']}\nТип мероприятия: {event_isPublic[eventData['event_isPublic']]}", 
-                                                   reply_markup=AdminEditPublicKeyboard.markup)   
-        else:
-            await callback_query.message.edit_text(f"Карточка мероприятия:\n\nИмя клиента: {eventData['client_name']}\nДата и время проведения мероприятия: {eventData['event_datetime']}\nПлощадка проведения: {platforms[eventData['event_platform']]}\nОписание мероприятия: {eventData['event_description']}\n\nТип мероприятия: {event_isPublic[eventData['event_isPublic']]}", 
-                                                   reply_markup=AdminEditPrivateKeyboard.markup)
+@dp.callback_query_handler(lambda c: c.data.startswith('select-weekday'), state=UserStates.admin)
+async def adminSelectWeekdays(callback_query: types.CallbackQuery, state: FSMContext):
+    eventData = await state.get_data()
+    if callback_query.data == 'select-weekdays':
+        # await state.update_data(class_intervals=[])
+        await callback_query.message.edit_text('Выберите дни недели.', reply_markup=AdminSelectWeekdays(eventData['class_weekdays']).markup)
+        return
+    eventData['class_weekdays'][int(callback_query.data[-1])] = not eventData['class_weekdays'][int(callback_query.data[-1])]
+    new_weekdays = eventData['class_weekdays']
+    await state.update_data(class_weekdays=new_weekdays)
+    await callback_query.message.edit_text('Выберите дни недели.', reply_markup=AdminSelectWeekdays(new_weekdays).markup)
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -366,6 +460,27 @@ async def adminAwaitDatetime(message: types.Message, state: FSMContext):
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+@dp.callback_query_handler(text='select-event-repeat', state=UserStates.admin)
+async def adminSelectRepeat(callback_query: types.CallbackQuery, state: FSMContext):
+    await callback_query.message.edit_text("Это занятие или мероприятие?", reply_markup=AdminSelectEventRepeat.markup)
+    await state.set_state(UserStates.AdminAwaitRepeatSelect.state)
+
+@dp.callback_query_handler(text='is-event', state=UserStates.AdminAwaitRepeatSelect)
+async def adminSelectedIsEvent(callback_query: types.CallbackQuery, state: FSMContext):
+    await state.set_state(UserStates.admin.state)
+    await state.update_data(isEvent=True)
+    await callback_query.message.edit_text("Выберите вид меропиятия:", reply_markup=AdminSelectTypeKeyboard.markup)
+    # await callback_query.message.edit_text('СЮДА КАРТОЧКУ')
+
+@dp.callback_query_handler(text='is-class', state=UserStates.AdminAwaitRepeatSelect)
+async def adminSelectedNotEvent(callback_query: types.CallbackQuery, state: FSMContext):
+    await state.set_state(UserStates.admin.state)
+    await state.update_data(event_isPublic=True)
+    await state.update_data(isEvent=False)
+    eventData = await state.get_data()
+    await callback_query.message.edit_text(f"Карточка мероприятия:\n\nНазвание мероприятия: {eventData['event_name']}\nВременные окна и дни недели: {serialize_intervals(eventData['class_intervals'])};{serialize_weekdays(eventData['class_weekdays'])}\nПлощадка проведения: {platforms[eventData['event_platform']]}\nКоличество гостей: {eventData['event_quota']}\nОписание мероприятия: {eventData['event_description']}\nТип мероприятия: {event_isPublic[eventData['event_isPublic']]}", 
+                                reply_markup=AdminAddIntervalEvent.markup)
 
 # @dp.callback_query_handler(lambda c: c.data == 'select-event-type', state=UserStates.admin)
 # async def adminSelectType(callback_qeury: types.CallbackQuery, state: FSMContext):
@@ -893,6 +1008,8 @@ async def start(message: types.Message, state: FSMContext):
         await state.update_data(event_isPublic='')
         await state.update_data(usr_role='adm')
         await state.update_data(admin_mode='reg')
+        await state.update_data(class_weekdays=[0 for _ in range(7)])
+        await state.update_data(class_intervals=[0 for _ in range(3)])
         await state.set_state(UserStates.admin.state)
         await message.answer("Добро пожаловать в админ-панель", reply_markup=AdminStartKeyboard.markup)
     elif user.role == 'emp':
@@ -911,13 +1028,13 @@ async def start(message: types.Message, state: FSMContext):
 
 @dp.callback_query_handler(lambda c: c.data.startswith("confirm-"), state='*')
 async def clientConfirmApplication(callback_query: types.CallbackQuery, state: FSMContext):
-    if confirm_application(session, callback_query.data.split('-')[1]):
+    if confirm_application(session, int(callback_query.data.split('-')[1])):
         await callback_query.message.edit_text('Спасибо, Ваше участие подтверждено!')
     else:
         await callback_query.message.edit_text('Кажется, что-то пошло не так..')
 
 @dp.callback_query_handler(lambda c: c.data.startswith("decline-"), state='*')
-async def clientConfirmApplication(callback_query: types.CallbackQuery, state: FSMContext):
+async def clientDeclineApplication(callback_query: types.CallbackQuery, state: FSMContext):
     if delete_application_by_id(session, callback_query.data.split('-')[1]):
         await callback_query.message.edit_text('Спасибо, Ваша заявка удалена!')
     else:
@@ -926,52 +1043,20 @@ async def clientConfirmApplication(callback_query: types.CallbackQuery, state: F
 
 @dp.callback_query_handler(text='dump-db', state=UserStates.admin)
 async def dumpHandler(callback_query: types.CallbackQuery, state: FSMContext):
-    await dumpDatabase()
+    await dumpDatabase(bot, session)
 
 
-async def checker():
-    events = check_if_up_to_date(session)
-    for i in events:
-        if i[1] == 1:
-            continue
-        elif i[1] == 0:
-            delete_event(session, i[0].id)
-        else:
-            applications = get_not_confirmed_applications_by_event(session, i[0].id)            
-            for j in applications:
-                await bot.send_message(chat_id=j[2], text=f'Вы подтверждаете свое участие в мероприятии, которое состоится {datetime.strftime(j[3], "%d.%m.%Y")}?',reply_markup=ClientSendConfirm(j[0]).markup)
+# if __name__ == '__main__':
+#     try:
+#         # scheduler.add_job(dumpDatabase, 'interval', args=[bot, session], weeks=2, start_date=datetime.strptime('2023-12-01 11:00:00', '%Y-%m-%d %H:%M:%S'), end_date=datetime.strptime('2030-12-28 11:00:00', '%Y-%m-%d %H:%M:%S'))
+#         scheduler.add_job(dumpDatabase, CronTrigger.from_crontab('0 11 1,14 * *'), args=[bot, session], id='dumpDB')
+#         # scheduler.add_job(checker, 'interval', args=[bot, session], days=1, start_date=datetime.strptime('2023-12-01 11:00:00', '%Y-%m-%d %H:%M:%S'), end_date=datetime.strptime('2030-12-28 11:00:00', '%Y-%m-%d %H:%M:%S'))
+#         scheduler.add_job(checker, CronTrigger.from_crontab('0 11 * * *'), args=[bot, session], id='checker')
+#         scheduler.start()
+#         executor.start_polling(dp, skip_updates=True)
+#     except (KeyboardInterrupt, SystemExit):
+#         scheduler.shutdown()
 
-async def dumpDatabase():
-    dump_table(session, 'events', 'events_dump')
-    dump_table(session, 'applications', 'applications_dump')
-    admins = get_all_admins(session)
-    basedir = os.path.abspath(os.path.dirname(__file__))
-    for i in admins:
-        events = types.InputFile(os.path.join(basedir, f'db/events_dump.csv'), filename=f'events_dump_{datetime.today().strftime("%d-%m-%Y")}.csv')
-        applications = types.InputFile(os.path.join(basedir, f'db/applications_dump.csv'), filename=f'applications_dump_{datetime.today().strftime("%d-%m-%Y")}.csv')
-        await bot.send_message(chat_id=i.id, text=f'Резервная копия базы мероприятий от {datetime.today().strftime("%d.%m.%Y")}:')
-        await bot.send_document(chat_id=i.id, document=events)
-        await bot.send_document(chat_id=i.id, document=applications)
-
-
-async def notifier(event: models.Event, state: MemoryStorage):
-    subscriptions = get_subscriptions_by_platform(session, event.platform)
-    for i in subscriptions:
-        await state.update_data(chat=i.user_id, user=i.user_id, event_id=event.id)
-        await state.update_data(chat=i.user_id, user=i.user_id, event_name=event.name)
-        await state.update_data(chat=i.user_id, user=i.user_id, client_name=event.client_name)
-        await state.update_data(chat=i.user_id, user=i.user_id, event_platform=event.platform)
-        await state.update_data(chat=i.user_id, user=i.user_id, event_quota=get_vacant_amount_by_event_id(session, event.id))
-        await state.update_data(chat=i.user_id, user=i.user_id, event_description=event.description)
-        await state.update_data(chat=i.user_id, user=i.user_id, event_datetime=f"{date.strftime(event.date, '%d.%m.%Y')} {time.strftime(event.time, '%H:%M')}")
-        await bot.send_message(chat_id=i.user_id, text=f'Рассылка по подписке на филиал {platforms[i.platform]}\n\nНазвание мероприятия: {event.name}\nДата и время проведения мероприятия: {date.strftime(event.date, "%d.%m.%Y")} {time.strftime(event.time, "%H:%M")}\nСвободных мест: {get_vacant_amount_by_event_id(session, event.id)}\nОписание мероприятия: {event.description}',
-                              reply_markup=SubscribeKeyboard(event.id).markup)
 
 if __name__ == '__main__':
-    try:
-        scheduler.add_job(dumpDatabase, 'interval', weeks=2, start_date=datetime.strptime('2023-12-01 11:00:00', '%Y-%m-%d %H:%M:%S'), end_date=datetime.strptime('2030-12-28 11:00:00', '%Y-%m-%d %H:%M:%S'))
-        scheduler.add_job(checker, 'interval', days=1, start_date=datetime.strptime('2023-12-01 11:00:00', '%Y-%m-%d %H:%M:%S'), end_date=datetime.strptime('2030-12-28 11:00:00', '%Y-%m-%d %H:%M:%S'))
-        scheduler.start()
-        executor.start_polling(dp, skip_updates=True)
-    except (KeyboardInterrupt, SystemExit):
-        pass
+    print(get_all_classes(session))
