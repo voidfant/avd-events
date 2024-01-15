@@ -31,17 +31,30 @@ class AdminConfirmEmpAdd:
 
 class AdminStartKeyboard:
     markup = InlineKeyboardMarkup(row_width=1)
-    # btn1 = InlineKeyboardButton('Добавить мероприятие', callback_data='select-event-type')
-    btn1 = InlineKeyboardButton('Добавить мероприятие', callback_data='select-event-repeat')
-    btn2 = InlineKeyboardButton('Удалить мероприятие', callback_data='del-event')
-    btn3 = InlineKeyboardButton('Изменить мероприятие', callback_data='edit-event')
+    # btn1 = InlineKeyboardButton('Добавить занятие', callback_data='select-event-type')
+    btn0 = InlineKeyboardButton('Добавить занятие или мероприятие', callback_data='select-event-repeat')
+    # btn2 = InlineKeyboardButton('Удалить мероприятие', callback_data='del-event')
+    # btn3 = InlineKeyboardButton('Изменить мероприятие', callback_data='edit-event')
+    btn1 = InlineKeyboardButton('Управлять мероприятиями', callback_data='control-events') 
+    btn2 = InlineKeyboardButton('Управлять занятиями', callback_data='control-classes')
     btn4 = InlineKeyboardButton('Управлять персоналом', callback_data='control-emps')
     btn5 = InlineKeyboardButton('Календарь мероприятий', callback_data='all-events')
     btn6 = InlineKeyboardButton('Резервная копия базы', callback_data='dump-db')
 
-    markup.add(btn1, btn2, btn3, btn4, btn5, btn6)
+    markup.add(btn0, btn1, btn2, btn4, btn5, btn6)
 
+class AdminControlEvents:
+    markup = InlineKeyboardMarkup(row_width=1)
+    markup.add(InlineKeyboardButton('Изменить мероприятие', callback_data='edit-event'),
+               InlineKeyboardButton('Удалить мероприятие', callback_data='del-event'),
+               InlineKeyboardButton('Назад', callback_data='admin-cancel'))
 
+class AdminControlClasses:
+    markup = InlineKeyboardMarkup(row_width=1)
+    markup.add(InlineKeyboardButton('Изменить занятие', callback_data='edit-class'),
+               InlineKeyboardButton('Удалить занятие', callback_data='del-class'),
+               InlineKeyboardButton('Назад', callback_data='admin-cancel'))
+    
 class ParseDatesKeyboard:
     def __init__(self, dates, mode='adm'):
         self.markup = InlineKeyboardMarkup(row_width=4)
@@ -53,6 +66,11 @@ class ParseDatesKeyboard:
         else:
             self.markup.add(InlineKeyboardButton('Отмена', callback_data='client-cancel'))
     
+class ParseClassesKeyboard:
+    def __init__(self, classes):
+        self.markup = InlineKeyboardMarkup(row_width=1)
+        self.markup.add(*[InlineKeyboardButton(x.name, callback_data=f'select-class-{x.id}') for x in classes])
+        self.markup.add(InlineKeyboardButton('Назад', callback_data='admin-cancel'))
 
 class ParseEventsByDateKeyboard:
     def __init__(self, events, mode='adm'):
@@ -138,7 +156,8 @@ class AdminEditPublicKeyboard:
     btn4 = InlineKeyboardButton('Ввести количество гостей', callback_data='enter-event-quota')
     btn5 = InlineKeyboardButton('Ввести описание', callback_data='enter-event-description')
     btn6 = InlineKeyboardButton('Ввести дату и время мероприятия', callback_data='enter-event-datetime')
-    btn8 = InlineKeyboardButton('Подтвердить', callback_data='confirm-event-edit')
+    # btn8 = InlineKeyboardButton('Подтвердить', callback_data='confirm-event-edit')
+    btn8 = InlineKeyboardButton('Подтвердить', callback_data='confirm-event-reg')
     btn9 = InlineKeyboardButton('Отмена', callback_data='admin-cancel')
 
     markup.add(btn1, btn6, btn3, btn4, btn5)
@@ -152,7 +171,8 @@ class AdminEditPrivateKeyboard:
     btn3 = InlineKeyboardButton('Выбрать площадку', callback_data='enter-event-platform')
     btn5 = InlineKeyboardButton('Ввести описание', callback_data='enter-event-description')
     btn6 = InlineKeyboardButton('Ввести дату и время мероприятия', callback_data='enter-event-datetime')
-    btn8 = InlineKeyboardButton('Подтвердить', callback_data='confirm-event-edit')
+    # btn8 = InlineKeyboardButton('Подтвердить', callback_data='confirm-event-edit')
+    btn8 = InlineKeyboardButton('Подтвердить', callback_data='confirm-event-reg')
     btn9 = InlineKeyboardButton('Отмена', callback_data='admin-cancel')
 
     markup.add(btn2, btn6, btn3, btn5)
@@ -338,7 +358,8 @@ class AdminEditIntervalEvent:
     btn4 = InlineKeyboardButton('Ввести количество гостей', callback_data='enter-event-quota')
     btn5 = InlineKeyboardButton('Ввести описание', callback_data='enter-event-description')
     btn6 = InlineKeyboardButton('Выбрать временные окна и дни недели', callback_data='select-event-datetime')
-    btn8 = InlineKeyboardButton('Подтвердить', callback_data='confirm-event-edit')
+    # btn8 = InlineKeyboardButton('Подтвердить', callback_data='confirm-event-edit')
+    btn8 = InlineKeyboardButton('Подтвердить', callback_data='confirm-event-reg')
     btn9 = InlineKeyboardButton('Отмена', callback_data='admin-cancel')
 
     markup.add(btn1, btn6, btn3, btn4, btn5)
@@ -396,3 +417,16 @@ class AdminSelectIntervalOrWeekdays:
                InlineKeyboardButton('Выбрать дни недели', callback_data='select-weekdays'),
                InlineKeyboardButton('Назад', callback_data='confirm-event-field'))
 
+
+class AdminConfirmDeleteClass:
+    def __init__(self, class_id):
+        self.markup = InlineKeyboardMarkup(row_width=2)
+        self.markup.add(InlineKeyboardButton('Удалить', callback_data=f'del-class-{class_id}'),
+                        InlineKeyboardButton('Отмена', callback_data='admin-cancel'))
+        
+
+class AdminConfirmDeleteEvent:
+    def __init__(self, event_id):
+        self.markup = InlineKeyboardMarkup(row_width=2)
+        self.markup.add(InlineKeyboardButton('Удалить', callback_data=f'del-event-{event_id}'),
+                        InlineKeyboardButton('Отмена', callback_data='admin-cancel'))

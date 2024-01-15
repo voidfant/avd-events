@@ -55,21 +55,27 @@ async def notifier(bot: Bot, session: Session, event: models.Event, state: Memor
 
 
 def serialize_weekdays(weekdays, direction = 0) -> str:
+    logging.log(logging.ERROR, weekdays)
     if not direction:
         readable = []
         for k, v in enumerate(weekdays):
             if v:
                 readable.append(weekdays_arr[k])
+        logging.log(logging.ERROR, readable)
         return ', '.join(readable)
+    
     return ''.join(map(str, map(int, weekdays)))
 
 
 def serialize_intervals(intervals, direction = 0) -> str:
+    logging.log(logging.ERROR, intervals)
     if not direction:
+
         readable = []
         for k, v in enumerate(intervals):
             if v:
                 readable.append(intervals_arr[k])
+        logging.log(logging.ERROR, readable)
         return ', '.join(readable)
     return ''.join(map(str, map(int, intervals)))
 
@@ -89,6 +95,12 @@ def get_current_week(date: date, initial: bool):
     return res
 
 
+def reschedule_on_startup(session: Session, scheduler: AsyncIOScheduler):
+    all_classes = get_all_classes(db=session)
+    for curr_class in all_classes:
+        scheduler.add_job(schedule_class, CronTrigger.from_crontab('0 11 * * MON'), args=[session, curr_class.id, scheduler], coalesce=True, replace_existing=True, id=f'{curr_class.id}')
+
+
 async def schedule_class(session: Session, class_id: int, scheduler: AsyncIOScheduler, initial: bool = False) -> bool:
     try:
         class_to_schedule = get_class_by_id(session, class_id)  
@@ -102,6 +114,7 @@ async def schedule_class(session: Session, class_id: int, scheduler: AsyncIOSche
             for k_i, interval in enumerate(class_to_schedule.intervals):
                 if int(weekday) and int(interval):
                     if today - date(year=week[k_w].year, month=week[k_w].month, day=week[k_w].day) >= timedelta(days=1):
+                        logging.log(logging.DEBUG, today - date(year=week[k_w].year, month=week[k_w].month, day=week[k_w].day))
                         continue
                     if not register_event(db=session,
                                         event_name=class_to_schedule.name,
@@ -118,10 +131,32 @@ async def schedule_class(session: Session, class_id: int, scheduler: AsyncIOSche
                                         class_id=class_id
                                         ):
                         logging.log(logging.ERROR, class_id)
+                    else:
+                        logging.log(logging.DEBUG, "Добавил эвент")
         scheduler.add_job(schedule_class, CronTrigger.from_crontab('0 11 * * MON'), args=[session, class_id, scheduler], coalesce=True, replace_existing=True, id=f'{class_id}')
-
         return 1
     except Exception as e:
         logging.log(logging.ERROR, e)
         return 0
+    
+
+async def notify_clients_on_event_deletion(session: Session, bot: Bot, event_id: int | None = None, class_id: int | None = None):
+    if class_id is None:
+        applications = get_applications_by_event(db=session, event_id=event_id)
+    else:
+        applications = []
+        events = get_events_by_class_id(db=session, class_id=class_id)
+        for event in events:
+            applications.extend(get_applications_by_event(db=session, event_id=event.id))
+    if applications is None or not applications:
+        logging.log(logging.ERROR, (applications, event_id, class_id))
+        return
+    for application in applications:
+        logging.log(logging.ERROR, application[2])
+        await bot.send_message(chat_id=application[2], text=f'Мероприятие, запланированное на {datetime.strftime(application[3], "%d.%m.%Y")} отменено или изменено, в связи с чем Ваша заявка обнулена.')
+
+
+
+
+### TODO: Уведомить клиентов об удалении их заявки
     

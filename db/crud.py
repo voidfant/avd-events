@@ -77,11 +77,13 @@ def get_class_by_id(db: Session, class_id: int) -> models.ClassEvent | None:
     finally:
         db.close()
 
+
 def get_events_by_date(db: Session, event_date: date) -> list:
     result = [x.Event for x in db.execute(select(models.Event)
                                           .filter_by(date=event_date))]
     db.close()
     return result
+
 
 def get_events_by_date_and_platform(db: Session, event_date: date, platform: str) -> list | None:
     try:
@@ -165,10 +167,10 @@ def get_applications_by_applicant(db: Session, user_id: str) -> list | None:
     finally:
         db.close()
 
-def get_users_by_event(db: Session, event_id: int) -> list | None:
+def get_users_by_event_id(db: Session, event_id: int) -> list | None:
     try:
         applications = [x.Application for x in db.execute(select(models.Application)
-                                .where(models.Application.id == id))]
+                                .where(models.Application.id == event_id))]
         result = []
         for i in applications:
             result.append([i.id, i.user_id, db.execute(select(models.Event)
@@ -208,11 +210,10 @@ def get_applications_by_event(db: Session, event_id: int) -> list | None:
                                 .where(models.Application.event_id == event_id))]
         result = []
         for i in applications:
-            result.append([i.id, db.execute(select(models.User)
-                                            .where(models.User.id == i.user_id)).one().User.name,
-                                            i.user_id,
-                                            db.execute(select(models.Event)
-                                                    .where(models.Event.id == event_id)).one().Event.date])
+            result.append([i.id,
+                           db.execute(select(models.User).where(models.User.id == i.user_id)).one().User.name,
+                           i.user_id,
+                           db.execute(select(models.Event).where(models.Event.id == event_id)).one().Event.date])
         return result
     except Exception as e:
         logging.log(logging.ERROR, e)
@@ -254,10 +255,23 @@ def get_subscriptions_by_platform(db: Session, platform: str) -> list | None:
     finally:
         db.close()
 
+
 def get_subscriptions_by_id(db: Session, user_id: str) -> list | None:
     try:
         result = [x.Subscription for x in db.execute(select(models.Subscription)
                                                     .where(models.Subscription.user_id == user_id))]
+        return result
+    except Exception as e:
+        logging.log(logging.ERROR, e)
+        return None
+    finally:
+        db.close()
+
+
+def get_events_by_class_id(db: Session, class_id: int) -> list | None:
+    try:
+        result = [x.Event for x in db.execute(select(models.Event)
+                                              .where(models.Event.class_id == class_id))]
         return result
     except Exception as e:
         logging.log(logging.ERROR, e)
@@ -302,7 +316,24 @@ def edit_event(db: Session, event_id: int, event_name: str, client_name: str, ev
     finally:
         db.close()
 
-def edit_class (db: Session, class_id: int, class_name: str, class_platform: int, class_quota: int, class_description: str, class_intervals: str, class_weekdays: str):
+# def cascade_edit_event(db: Session, class_id: int, class_name: str, class_platform: int, class_quota: int, class_description: str, class_intervals: str, class_weekdays: str) -> bool:
+#     """
+#         Метод служит для каскадного редактирования мероприятий в соответствии с актуальной версией шаблона занятия
+
+#         :param Session db: Сессия подключения к БД
+#         :param int class_id: ID шаблона занятия
+#         :params Any class_...: Данные занятия
+#         :rtype: bool
+#         :return: True в случае успеха и False в случае неудачи
+#     """
+#     events_to_edit = get_events_by_class_id(db=db, class_id=class_id)
+#     for event in events_to_edit:
+#         edit_event(db=db,
+#                    event_id=event.id,
+#                    event_name=class_name,)
+
+
+def edit_class (db: Session, class_id: int, class_name: str, class_platform: int, class_quota: int, class_description: str, class_intervals: str, class_weekdays: str) -> bool:
     try:
         db.execute(update(models.ClassEvent)
                    .values(
@@ -324,7 +355,7 @@ def edit_class (db: Session, class_id: int, class_name: str, class_platform: int
         db.close()
 
 
-def confirm_application(db: Session, application_id: int):
+def confirm_application(db: Session, application_id: int) -> bool:
     try:
         db.execute(update(models.Application)
                    .values(
@@ -503,6 +534,28 @@ def delete_application_by_id(db: Session, application_id: id) -> bool:
         return 0
     finally:
         db.close()   
+
+def delete_application_by_event_id(db: Session, event_id: int) -> bool:
+    """
+        Удаляет заявку по ID мероприятия
+
+        :param Session db: Сессия подключения к БД
+        :param int event_id: ID мероприятия
+        :return: True в случае успеха и False в случае неудачи
+        :rtype: bool
+    """
+    try:
+        
+        db.execute(delete(models.Application)
+                   .where(models.Application.event_id == event_id))
+        db.commit()
+        return 1
+    except Exception as e:
+        logging.log(logging.ERROR, e)
+        db.rollback()
+        return 0
+    finally:
+        db.close()
 
 
 def delete_application(db: Session, event_id: int, user_id: str) -> bool:
