@@ -44,7 +44,7 @@ platforms = {'verh': 'Верхние Лихоборы', 'voyk': 'Войковс�
 event_isPublic = {1: 'Открытое', 0: 'Закрытое', '': ''}
 event_reverseIsPublic = {'public': 1, 'private': 0}
 weekdays_arr = ['ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ', 'СБ', 'ВС']
-intervals_arr = ['14:00 - 16:00', '16:00 - 18:00', '18:00 - 20:00']
+intervals_arr = ['11:00 - 13:00', '12:00 - 14:00', '13:00 - 15:00', '14:00 - 16:00', '15:00 - 17:00', '16:00 - 18:00', '17:00 - 19:00', '18:00 - 20:00', '19:00 - 21:00']
 
 
 class UserStates(StatesGroup):
@@ -184,7 +184,7 @@ async def confirmEventAdd(callback_query: types.CallbackQuery, state: FSMContext
                                 class_quota=eventData['event_quota'],
                                 class_description=eventData['event_description'],
                                 class_weekdays=serialize_weekdays(eventData['class_weekdays'], 1),
-                                class_intervals=serialize_weekdays(eventData['class_intervals'], 1))
+                                class_intervals=serialize_intervals(eventData['class_intervals'], 1))
             res_sched = await schedule_class(session=session, class_id=get_latest_class_record(session).id, scheduler=scheduler, initial=True)
         elif eventData['admin_mode'] == 'edit':
             await notify_clients_on_event_deletion(session=session, bot=bot, class_id=eventData['event_id'])
@@ -1102,7 +1102,7 @@ async def start(message: types.Message, state: FSMContext):
         await state.update_data(admin_mode='reg')
         await state.update_data(isEvent=True)
         await state.update_data(class_weekdays=[0 for _ in range(7)])
-        await state.update_data(class_intervals=[0 for _ in range(3)])
+        await state.update_data(class_intervals=[0 for _ in range(9)])
         await state.set_state(UserStates.admin.state)
         await message.answer("Добро пожаловать в админ-панель", reply_markup=AdminStartKeyboard.markup)
     elif user.role == 'emp':

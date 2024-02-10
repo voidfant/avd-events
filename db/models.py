@@ -22,7 +22,7 @@ class ClassEvent(Base):
     quota = Column(SmallInteger, index=False, nullable=True)
     description = Column(Text, nullable=True, index=False)
     weekdays = Column(VARCHAR(7), index=False, nullable=False)
-    intervals = Column(VARCHAR(3), index=False, nullable=False)
+    intervals = Column(VARCHAR(9), index=False, nullable=False)
 
 class Event(Base):
     __tablename__ = "events"

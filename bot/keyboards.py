@@ -362,10 +362,16 @@ class AdminSelectIntervals:
             else:
                 ticks.append('❌')
         
-        self.markup.add(InlineKeyboardButton(f'{ticks[0]} 14:00 - 16:00', callback_data='select-interval-0'),
-                InlineKeyboardButton(f'{ticks[1]} 16:00 - 18:00', callback_data='select-interval-1'),
-                InlineKeyboardButton(f'{ticks[2]} 18:00 - 20:00', callback_data='select-interval-2'),
-                InlineKeyboardButton('Готово', callback_data='select-intervals-done'))
+        self.markup.add(InlineKeyboardButton(f'{ticks[0]} 11:00 - 13:00', callback_data='select-interval-0'),
+                        InlineKeyboardButton(f'{ticks[1]} 12:00 - 14:00', callback_data='select-interval-1'),
+                        InlineKeyboardButton(f'{ticks[2]} 13:00 - 15:00', callback_data='select-interval-2'),
+                        InlineKeyboardButton(f'{ticks[3]} 14:00 - 16:00', callback_data='select-interval-3'),
+                        InlineKeyboardButton(f'{ticks[4]} 15:00 - 17:00', callback_data='select-interval-4'),
+                        InlineKeyboardButton(f'{ticks[5]} 16:00 - 18:00', callback_data='select-interval-5'),
+                        InlineKeyboardButton(f'{ticks[6]} 17:00 - 19:00', callback_data='select-interval-6'),
+                        InlineKeyboardButton(f'{ticks[7]} 18:00 - 20:00', callback_data='select-interval-7'),
+                        InlineKeyboardButton(f'{ticks[8]} 19:00 - 21:00', callback_data='select-interval-8'),
+                        InlineKeyboardButton('Готово', callback_data='select-intervals-done'))
 
 
 class AdminSelectWeekdays:
