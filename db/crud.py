@@ -2,16 +2,15 @@ import logging
 
 import pandas as pd
 from sqlalchemy.orm import Session
-from sqlalchemy import select, update, delete
+from sqlalchemy import select, update, delete, and_
 
 from db import models
 from db.database import engine
 
 
 import os
-import csv
-from typing import Union
-from datetime import datetime, date, time, timedelta
+from typing import List
+from datetime import datetime, date, timedelta
 
 
 def dump_table(db: Session, table: str, filename: str) -> bool:
@@ -83,6 +82,14 @@ def get_events_by_date(db: Session, event_date: date) -> list:
                                           .filter_by(date=event_date))]
     db.close()
     return result
+
+
+def get_events_by_date_range(db: Session, date_range: List[date]):
+    result = [x.Event for x in db.execute(select(models.Event)
+                                          .filter(and_(models.Event.date >= date_range[0],
+                                                       models.Event.date <= date_range[-1])))]
+    db.close()
+    return result 
 
 
 def get_events_by_date_and_platform(db: Session, event_date: date, platform: str) -> list | None:
@@ -315,22 +322,6 @@ def edit_event(db: Session, event_id: int, event_name: str, client_name: str, ev
         return 0
     finally:
         db.close()
-
-# def cascade_edit_event(db: Session, class_id: int, class_name: str, class_platform: int, class_quota: int, class_description: str, class_intervals: str, class_weekdays: str) -> bool:
-#     """
-#         Метод служит для каскадного редактирования мероприятий в соответствии с актуальной версией шаблона занятия
-
-#         :param Session db: Сессия подключения к БД
-#         :param int class_id: ID шаблона занятия
-#         :params Any class_...: Данные занятия
-#         :rtype: bool
-#         :return: True в случае успеха и False в случае неудачи
-#     """
-#     events_to_edit = get_events_by_class_id(db=db, class_id=class_id)
-#     for event in events_to_edit:
-#         edit_event(db=db,
-#                    event_id=event.id,
-#                    event_name=class_name,)
 
 
 def edit_class (db: Session, class_id: int, class_name: str, class_platform: int, class_quota: int, class_description: str, class_intervals: str, class_weekdays: str) -> bool:

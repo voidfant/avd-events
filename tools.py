@@ -1,3 +1,5 @@
+from datetime import time
+
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram import types, Bot
 
@@ -5,7 +7,6 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from bot.keyboards import *
-# from db.database import *
 from db.crud import *
 
 platforms = {'verh': 'Верхние Лихоборы', 'voyk': 'Войковская', 'zhiv': '\"Живописно\"', 'musm': 'Музей Света и Цвета', '': ''}
@@ -80,10 +81,13 @@ def serialize_intervals(intervals, direction = 0) -> str:
     return ''.join(map(str, map(int, intervals)))
 
 
-def get_current_week(date: date, initial: bool):
+def get_week(date: date, initial: bool | None = None, weeksdelta: int = 0):
     res = []
+    if initial == False:
+        weeksdelta = 1
+        
     if not initial:
-        date = date - timedelta(days=date.weekday() + 1) + timedelta(weeks=1)
+        date = date - timedelta(days=date.weekday() + 1) + timedelta(weeks=weeksdelta)
         for _ in range(7):
             date += timedelta(days=1)
             res.append(date)    
@@ -107,7 +111,7 @@ async def schedule_class(session: Session, class_id: int, scheduler: AsyncIOSche
         if class_to_schedule is None:
             return
         today = datetime.utcnow().date()
-        week = get_current_week(date=today, initial=initial)
+        week = get_week(date=today, initial=initial)
         if initial:
             class_to_schedule.weekdays += class_to_schedule.weekdays
         for k_w, weekday in enumerate(class_to_schedule.weekdays):
@@ -154,9 +158,4 @@ async def notify_clients_on_event_deletion(session: Session, bot: Bot, event_id:
     for application in applications:
         logging.log(logging.ERROR, application[2])
         await bot.send_message(chat_id=application[2], text=f'Мероприятие, запланированное на {datetime.strftime(application[3], "%d.%m.%Y")} отменено или изменено, в связи с чем Ваша заявка обнулена.')
-
-
-
-
-### TODO: Уведомить клиентов об удалении их заявки
     

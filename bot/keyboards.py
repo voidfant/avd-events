@@ -1,12 +1,14 @@
-from aiogram.types import InlineKeyboardMarkup, ReplyKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from datetime import date
 
-import datetime
-
+table_abbreviations = {'voyk': 'ВОЙК', 'verh': 'ВЛ', 'musm': 'МУЗ', 'zhiv': 'ЖИВ'}
+months_names = {1: 'Январь', 2: 'Февраль', 3: 'Март', 4: 'Апрель',
+                5: 'Май', 6: 'Июнь', 7: 'Июль', 8: 'Август',
+                9: 'Сентябрь', 10: 'Октябрь', 11: 'Ноябрь', 12: 'Декабрь' }
 
 class AdminConfirmEventDataKeyboard:
     markup = InlineKeyboardMarkup(row_width=1)
     btn1 = InlineKeyboardButton('Отмена', callback_data='admin-cancel')
-    # btn2 = InlineKeyboardButton('Подтвердить', callback_data='add-event')
     btn2 = InlineKeyboardButton('Подтвердить', callback_data='confirm-event-field')
 
     markup.add(btn1, btn2)
@@ -31,17 +33,15 @@ class AdminConfirmEmpAdd:
 
 class AdminStartKeyboard:
     markup = InlineKeyboardMarkup(row_width=1)
-    # btn1 = InlineKeyboardButton('Добавить занятие', callback_data='select-event-type')
     btn0 = InlineKeyboardButton('Добавить занятие или мероприятие', callback_data='select-event-repeat')
-    # btn2 = InlineKeyboardButton('Удалить мероприятие', callback_data='del-event')
-    # btn3 = InlineKeyboardButton('Изменить мероприятие', callback_data='edit-event')
     btn1 = InlineKeyboardButton('Управлять мероприятиями', callback_data='control-events') 
     btn2 = InlineKeyboardButton('Управлять занятиями', callback_data='control-classes')
     btn4 = InlineKeyboardButton('Управлять персоналом', callback_data='control-emps')
     btn5 = InlineKeyboardButton('Календарь мероприятий', callback_data='all-events')
+    btn7 = InlineKeyboardButton('Понедельный каленадрь', callback_data='weekly-calendar:0')
     btn6 = InlineKeyboardButton('Резервная копия базы', callback_data='dump-db')
 
-    markup.add(btn0, btn1, btn2, btn4, btn5, btn6)
+    markup.add(btn0, btn1, btn2, btn4, btn5, btn7, btn6)
 
 class AdminControlEvents:
     markup = InlineKeyboardMarkup(row_width=1)
@@ -76,7 +76,6 @@ class ParseEventsByDateKeyboard:
     def __init__(self, events, mode='adm'):
         self.markup = InlineKeyboardMarkup(row_width=1)
         self.markup.add(*sorted([InlineKeyboardButton(f"{event[1] if event[3] else event[2]} - {event[4]}", callback_data=f"id:{event[0]}-time:{event[4]}") for event in events], key=lambda x: (int(x.callback_data[::-1][3:5]), int(x.callback_data[::-1][:2]))))
-        # self.markup.add(*sorted([InlineKeyboardButton(f"{event[1]} - {event[2]}", callback_data=f"name:{event[1]}-time:{event[2]}") for event in events], key=lambda x: (int(x.callback_data[x.callback_data.index(":", x.callback_data.index(":")+1) - 2:x.callback_data.index(":", x.callback_data.index(":")+1)]), int(x.callback_data[x.callback_data.index(":", x.callback_data.index(":")+1):]))))
         if mode == 'adm':
             self.markup.add(InlineKeyboardButton('Отмена', callback_data='admin-cancel'))
         elif mode == 'emp':
@@ -84,6 +83,18 @@ class ParseEventsByDateKeyboard:
         else:
             self.markup.add(InlineKeyboardButton('Отмена', callback_data='client-cancel'))
     
+class ParseEventsByDateFromTable:
+    def __init__(self, events, mode='adm'):
+        self.markup = InlineKeyboardMarkup(row_width=1)
+        self.markup.add(*sorted([InlineKeyboardButton(f"{event[1] if event[3] else event[2]} - {event[4]}", callback_data=f"id:{event[0]}-time:{event[4]}") for event in events], key=lambda x: (int(x.callback_data[::-1][3:5]), int(x.callback_data[::-1][:2]))))
+        if mode == 'adm':
+            self.markup.add(InlineKeyboardButton('Добавить мероприятие', callback_data=''))
+            self.markup.add(InlineKeyboardButton('Отмена', callback_data='admin-cancel'))
+        elif mode == 'emp':
+            self.markup.add(InlineKeyboardButton('Отмена', callback_data='emp-cancel'))
+        else:
+            self.markup.add(InlineKeyboardButton('Отмена', callback_data='client-cancel'))
+
 
 class SelectPlatform:
     markup = InlineKeyboardMarkup(row_width=1)
@@ -156,7 +167,6 @@ class AdminEditPublicKeyboard:
     btn4 = InlineKeyboardButton('Ввести количество гостей', callback_data='enter-event-quota')
     btn5 = InlineKeyboardButton('Ввести описание', callback_data='enter-event-description')
     btn6 = InlineKeyboardButton('Ввести дату и время мероприятия', callback_data='enter-event-datetime')
-    # btn8 = InlineKeyboardButton('Подтвердить', callback_data='confirm-event-edit')
     btn8 = InlineKeyboardButton('Подтвердить', callback_data='confirm-event-reg')
     btn9 = InlineKeyboardButton('Отмена', callback_data='admin-cancel')
 
@@ -171,7 +181,6 @@ class AdminEditPrivateKeyboard:
     btn3 = InlineKeyboardButton('Выбрать площадку', callback_data='enter-event-platform')
     btn5 = InlineKeyboardButton('Ввести описание', callback_data='enter-event-description')
     btn6 = InlineKeyboardButton('Ввести дату и время мероприятия', callback_data='enter-event-datetime')
-    # btn8 = InlineKeyboardButton('Подтвердить', callback_data='confirm-event-edit')
     btn8 = InlineKeyboardButton('Подтвердить', callback_data='confirm-event-reg')
     btn9 = InlineKeyboardButton('Отмена', callback_data='admin-cancel')
 
@@ -183,7 +192,6 @@ class AdminControlEmpsKeyboard:
     markup = InlineKeyboardMarkup(row_width=1)
     btn1 = InlineKeyboardButton('Добавить сотрудника', callback_data='add-emp')
     btn2 = InlineKeyboardButton('Удалить сотрудника', callback_data='del-emp')
-    # btn3 = InlineKeyboardButton('Посмотреть сотрудников', callback_data='view-emps')
 
     markup.add(btn1, btn2)
 
@@ -198,15 +206,15 @@ class AdminSelectTypeKeyboard:
     markup = InlineKeyboardMarkup(row_width=1)
     btn1 = InlineKeyboardButton('Закрытое мероприятие', callback_data='add-private-event')
     btn2 = InlineKeyboardButton('Открытое мероприятие', callback_data='add-public-event')
-    # btn2 = InlineKeyboardButton('Открытое мероприятие', callback_data='select-event-repeat')
 
     markup.add(btn1, btn2)
 
 class EmpStartKeyboard:
     markup = InlineKeyboardMarkup(row_width=1)
     btn1 = InlineKeyboardButton('Календарь мероприятий', callback_data="all-events")
+    btn2 = InlineKeyboardButton('Понедельный каленадрь', callback_data='weekly-calendar:0')
 
-    markup.add(btn1)
+    markup.add(btn1, btn2)
 
 
 class StartKeyboard:
@@ -216,26 +224,6 @@ class StartKeyboard:
     btn3 = InlineKeyboardButton('Ближайшие мероприятия', callback_data='upcoming-events')
 
     markup.add(btn1, btn2, btn3)
-
-
-# class MyEventsKeyboard:
-#     markup = InlineKeyboardMarkup(row_width=2)
-#     btn1 = InlineKeyboardButton('Подписки', callback_data='subscriptions')
-#     btn2 = InlineKeyboardButton('Мои мероприятия', callback_data='my-events')
-#     btn3 = InlineKeyboardButton('Ближайшие мероприятия', callback_data='upcoming-events')
-
-#     markup.add(btn1, btn2, btn3)
-
-
-# class UpcomingEventsKeyboard:
-#     markup = InlineKeyboardMarkup(row_width=2)
-#     btn1 = InlineKeyboardButton('Подписки', callback_data='subscriptions')
-#     btn2 = InlineKeyboardButton('Мои заявки', callback_data='my-events')
-#     btn3 = InlineKeyboardButton('Ближайшие мероприятия', callback_data='upcoming-events')
-#     for i in [datetime.datetime.today() + datetime.timedelta(days=x) for x in range(31)]:
-#         markup.add(InlineKeyboardButton(f'{i.strftime("%d.%m")}', callback_data=f'event-{i.strftime("%d-%m")}'))
-
-#     markup.add(btn1, btn2, btn3)
 
 
 class SubscriptionsKeyboard:
@@ -301,7 +289,6 @@ class ClientMyEvents:
             self.markup.add(InlineKeyboardButton('Отмена', callback_data='client-cancel'))
         else:
             self.markup.add(InlineKeyboardButton('Отмена', callback_data='client-cancel'))
-        # self.markup.add((InlineKeyboardButton(f"", callback_data=f"id:{x.id}") for x in applications))
 
 class ClientMyEventsUnsubscribe:
     markup = InlineKeyboardMarkup(row_width=2)
@@ -358,7 +345,6 @@ class AdminEditIntervalEvent:
     btn4 = InlineKeyboardButton('Ввести количество гостей', callback_data='enter-event-quota')
     btn5 = InlineKeyboardButton('Ввести описание', callback_data='enter-event-description')
     btn6 = InlineKeyboardButton('Выбрать временные окна и дни недели', callback_data='select-event-datetime')
-    # btn8 = InlineKeyboardButton('Подтвердить', callback_data='confirm-event-edit')
     btn8 = InlineKeyboardButton('Подтвердить', callback_data='confirm-event-reg')
     btn9 = InlineKeyboardButton('Отмена', callback_data='admin-cancel')
 
@@ -369,11 +355,7 @@ class AdminEditIntervalEvent:
 class AdminSelectIntervals:
     def __init__(self, intervals):
         self.markup = InlineKeyboardMarkup(row_width=1)
-        # ticks = {1: '❌', 2: '❌', 3: '❌'}
         ticks = []
-        # for i in ticks.keys():
-        #     if i in eventData['class_intervals']:
-        #         ticks[i] = '✅'
         for i in intervals:
             if i:
                 ticks.append('✅')
@@ -389,13 +371,7 @@ class AdminSelectIntervals:
 class AdminSelectWeekdays:
     def __init__(self, weekdays):
         self.markup = InlineKeyboardMarkup(row_width=4)
-        # ticks = {1: '❌', 2: '❌', 3: '❌',
-        #          4: '❌', 5: '❌', 6: '❌',
-        #          7: '❌'}
         ticks = []
-        # for i in ticks.keys():
-        #     if i in eventData['class_weekdays']:
-        #         ticks[i] = '✅'
         for i in weekdays:
             if i:
                 ticks.append('✅')
@@ -430,3 +406,38 @@ class AdminConfirmDeleteEvent:
         self.markup = InlineKeyboardMarkup(row_width=2)
         self.markup.add(InlineKeyboardButton('Удалить', callback_data=f'del-event-{event_id}'),
                         InlineKeyboardButton('Отмена', callback_data='admin-cancel'))
+
+
+class WeekTable:
+    def __init__(self, week_data: dict, role: str, shift_weeks: int = 0, order: list = ['voyk', 'musm', 'verh', 'zhiv']):
+        self.markup = InlineKeyboardMarkup(row_width=8)
+        months = sorted({int(date.strftime(x, '%m')) for x in week_data.keys()})
+        if 12 in months and 1 in months:
+            months = months[::-1]
+        months = [months_names[x] for x in months]
+        self.markup.row(InlineKeyboardButton(f'{" - ".join(months)}', callback_data='empty-callback'))
+        self.markup.row(InlineKeyboardButton(' ', callback_data='empty-callback'), *[InlineKeyboardButton(f'{int(date.strftime(day, "%d"))}', callback_data='empty-callback') for day in week_data.keys()])
+        for platform in order:
+            self.markup.row(InlineKeyboardButton(f'{table_abbreviations[platform]}', callback_data='empty-callback'), *[InlineKeyboardButton(f'{week_data[day][platform]}', callback_data=f'date:{date.strftime(day, "%d.%m.%Y")}-platform:{platform}') for day in week_data.keys()])
+        if shift_weeks == 0:
+            self.markup.row(InlineKeyboardButton('➡️', callback_data=f'weekly-calendar:{1}'))
+        else:
+            self.markup.row(InlineKeyboardButton('⬅️', callback_data=f'weekly-calendar:{shift_weeks-1}'),
+                            InlineKeyboardButton('➡️', callback_data=f'weekly-calendar:{shift_weeks+1}'))
+        if role == 'adm':
+            self.markup.row(InlineKeyboardButton('Назад', callback_data='admin-cancel'))
+        elif role == 'emp':
+            self.markup.row(InlineKeyboardButton('Назад', callback_data='emp-cancel'))
+
+
+class ParseEventsByDateTableKeyboard:
+    def __init__(self, events, mode='adm'):
+        self.markup = InlineKeyboardMarkup(row_width=1)
+        self.markup.add(*sorted([InlineKeyboardButton(f"{event[1] if event[3] else event[2]} - {event[4]}", callback_data=f"id:{event[0]}-time:{event[4]}") for event in events], key=lambda x: (int(x.callback_data[::-1][3:5]), int(x.callback_data[::-1][:2]))))
+        if mode == 'adm':
+            self.markup.add(InlineKeyboardButton('Добавить мероприятие', callback_data='add-private-event'))
+            self.markup.add(InlineKeyboardButton('Отмена', callback_data='admin-cancel'))
+        elif mode == 'emp':
+            self.markup.add(InlineKeyboardButton('Отмена', callback_data='emp-cancel'))
+        else:
+            self.markup.add(InlineKeyboardButton('Отмена', callback_data='client-cancel'))

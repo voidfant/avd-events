@@ -1,4 +1,3 @@
-# from asyncio import sleep, run
 import logging 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -10,8 +9,11 @@ from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.contrib.middlewares.logging import LoggingMiddleware
 from aiogram.dispatcher.filters.state import State, StatesGroup
 
+
 import re
 import os
+from datetime import time
+from collections import defaultdict
 
 from dotenv import load_dotenv, find_dotenv
 
@@ -76,8 +78,13 @@ class UserStates(StatesGroup):
     clientAwaitSelectViewApplication = State()
     employee = State()
     empAwaitSelectToView = State()
+    empAwaitSelectTable = State()
     
 
+
+@dp.callback_query_handler(text='empty-callback', state='*')
+async def emptyCallBackHandler(callback_query: types.CallbackQuery, state: FSMContext):
+    pass
 
 @dp.callback_query_handler(lambda c: c.data == 'admin-cancel', state=[UserStates.admin, 
                                                                 UserStates.adminAwaitClientName, 
@@ -97,7 +104,8 @@ class UserStates(StatesGroup):
                                                                 UserStates.AdminAwaitRepeatSelect,
                                                                 UserStates.AdminSelectInterval,
                                                                 UserStates.adminAwaitSelectClassToEdit,
-                                                                UserStates.adminAwaitSelectClassToDel
+                                                                UserStates.adminAwaitSelectClassToDel,
+                                                                UserStates.empAwaitSelectTable
                                                                 ])
 async def goBackAdmin(callback_query: types.CallbackQuery, state: FSMContext):
     await state.update_data(event_id='')
@@ -279,8 +287,10 @@ async def adminSelectEventType(callback_query: types.CallbackQuery, state: FSMCo
     await callback_query.message.edit_text("Выберите вид меропиятия:", reply_markup=AdminSelectTypeKeyboard.markup)
 
 
-@dp.callback_query_handler(lambda c: re.fullmatch(r"add-(private|public)-event", c.data), state=UserStates.admin)
+@dp.callback_query_handler(lambda c: re.fullmatch(r"add-(private|public)-event", c.data), state=[UserStates.admin,
+                                                                                                 UserStates.empAwaitSelectToView])
 async def adminRememberTypeChoice(callback_query: types.CallbackQuery, state: FSMContext):
+    await state.set_state(UserStates.admin)
     status = callback_query.data.split('-')[1]
     await state.update_data(event_isPublic=True if status == 'public' else False)
     eventData = await state.get_data()
@@ -439,6 +449,8 @@ async def adminEnterDatetime(callback_query: types.CallbackQuery, state: FSMCont
 
 @dp.message_handler(state=UserStates.adminAwaitDateTime)
 async def adminAwaitDatetime(message: types.Message, state: FSMContext):
+    if not re.fullmatch(r'([0-9]{2}.[0-9]{2}.[0-9]{4}) ([0-9]{2}:[0-9]{2})', message.text):
+        await message.reply("Введите дату и время проведения мероприятия в формате: \"дд.мм.гггг чч:мм\".\n\nПример: 20.01.1976 13:05", reply_markup=AdminConfirmEventDataKeyboard.markup)
     await state.update_data(event_datetime=message.text)
 
 
@@ -699,7 +711,8 @@ async def adminSelectedEmpToDel(callback_query: types.CallbackQuery, state: FSMC
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 @dp.callback_query_handler(text='emp-cancel', state=[UserStates.employee,
-                                                     UserStates.empAwaitSelectToView])
+                                                     UserStates.empAwaitSelectToView,
+                                                     UserStates.empAwaitSelectTable])
 async def goBackEmp(callback_query: types.CallbackQuery, state: FSMContext):
     await state.set_state(UserStates.employee.state)
     await callback_query.message.answer("Добро пожаловать в панель сотрудника", reply_markup=EmpStartKeyboard.markup)
@@ -744,6 +757,46 @@ async def empSelectToView(callback_query: types.CallbackQuery, state: FSMContext
     else:
         await callback_query.message.edit_text("Ты кто..", reply_markup=types.ReplyKeyboardRemove())
 
+
+@dp.callback_query_handler(lambda c: c.data.startswith('weekly-calendar:'), state=[UserStates.employee,
+                                                                                   UserStates.admin,
+                                                                                   UserStates.empAwaitSelectTable])
+async def showWeeklyCalendar(callback_query: types.CallbackQuery, state: FSMContext):
+    shift = int(callback_query.data[callback_query.data.index(':')+1:])
+    order = ['voyk', 'musm', 'verh', 'zhiv']
+    week_data = defaultdict(lambda: defaultdict())
+    week_dates = get_week(date.today(), weeksdelta=shift)
+    week_events = get_events_by_date_range(session, week_dates)
+    for day in week_dates:
+        for platform in order:
+            week_data[day][platform] = 0
+    for event in week_events:
+        if not event.isPublic:
+            week_data[event.date][event.platform] += 1
+    usrData = await state.get_data()
+    await callback_query.message.edit_text("Выберите слот в таблице", reply_markup=WeekTable(week_data=week_data, shift_weeks=int(callback_query.data.split(':')[1]), role=usrData['usr_role']).markup)
+    await state.set_state(UserStates.empAwaitSelectTable.state)
+
+
+@dp.callback_query_handler(lambda c: re.fullmatch(r"(date:([0-9]{2}.[0-9]{2}.[0-9]{4}))-(platform:(voyk|verh|musm|zhiv))", c.data), state=UserStates.empAwaitSelectTable)
+async def showEventOnDateTable(callback_query: types.CallbackQuery, state: FSMContext):
+    callback_data = re.search(r"(date:([0-9]{2}.[0-9]{2}.[0-9]{4}))-(platform:(voyk|verh|musm|zhiv))", callback_query.data, re.IGNORECASE)
+    event_platform, event_date = callback_data.group(4), callback_data.group(2)
+    events = [[x.id, x.name, x.client_name, x.isPublic, x.time.strftime("%H:%M")] for x in get_events_by_date_and_platform(session, datetime.strptime(event_date, '%d.%m.%Y').date(), event_platform)]
+    usrData = await state.get_data()
+    if usrData['usr_role'] == 'emp':
+        await callback_query.message.edit_text("Выберите мероприятие:", reply_markup=ParseEventsByDateTableKeyboard(events, 'emp').markup)
+        await state.set_state(UserStates.empAwaitSelectToView.state)
+    elif usrData['usr_role'] == 'adm':
+        await callback_query.message.edit_text("Выберите мероприятие:", reply_markup=ParseEventsByDateTableKeyboard(events, 'adm').markup)
+        await state.update_data(event_isPublic=False)
+        await state.update_data(event_platform=event_platform)
+        await state.set_state(UserStates.empAwaitSelectToView.state)
+    else:
+        await callback_query.message.edit_text("Ты кто..", reply_markup=types.ReplyKeyboardRemove())
+
+
+
 @dp.callback_query_handler(lambda c: re.fullmatch(r"id:[0-9]{1,}-time:[0-9]{2}:[0-9]{2}", c.data), state=UserStates.empAwaitSelectToView)
 async def empSelectEventToView(callback_query: types.CallbackQuery, state: FSMContext):
     event = get_event_by_id(session, int(callback_query.data[callback_query.data.index(':')+1:callback_query.data.index('-')]))
@@ -780,7 +833,6 @@ async def empSelectEventToView(callback_query: types.CallbackQuery, state: FSMCo
 @dp.callback_query_handler(text='admin-seek-applications', state=UserStates.admin)
 async def adminSeekApplications(callback_query: types.CallbackQuery, state: FSMContext):
     eventData = await state.get_data()
-    # applications = [[x.id, x.client_name] for x in get_applications_by_event(session, eventData['event_id'])]
     applications = get_applications_by_event(session, eventData['event_id'])
     await callback_query.message.edit_text('Заявки на это мероприятие:', reply_markup=AdminViewApplications(applications).markup)
     await state.set_state(UserStates.adminSeekApplications.state)
@@ -812,15 +864,6 @@ async def subscribe(callback_query: types.CallbackQuery, state: FSMContext):
     if toggle_subscription(session, str(callback_query.from_user.id), callback_query.data.split('-')[1]):
         subscriptions = get_subscriptions_by_id(session, str(callback_query.from_user.id))
         await callback_query.message.edit_text('Нажмите на филиал, чтобы подписаться/отписаться на рассылку мероприятий.', reply_markup=SubscriptionsKeyboard(subscriptions).markup)
-
-# @dp.callback_query_handler(lambda c: c.data == 'my-events', state=UserStates.client)
-# async def subscriptions(callback_query: types.CallbackQuery):
-#     await callback_query.message.edit_text("Выберите дату", reply_markup=StartKeyboard.markup)
-
-
-# @dp.callback_query_handler(lambda c: c.data == 'upcoming-events', state=UserStates.client)
-# async def subscriptions(callback_query: types.CallbackQuery):
-#     await callback_query.message.edit_text("Выберите филиал", reply_markup=StartKeyboard.markup)
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -1118,10 +1161,6 @@ async def controlEvents(callback_query: types.CallbackQuery, state: FSMContext):
 async def controlClasses(callback_query: types.CallbackQuery, state: FSMContext):
     await callback_query.message.edit_text('Выберите действие', reply_markup=AdminControlClasses.markup)
 
-# @dp.callback_query_handler(text='edit-class', state=UserStates.admin)
-# async def editClass(callback_query: types.CallbackQuery, state: FSMContext):
-#     await callback_query.message.edit_text('Выберите занятие', reply_markup=AdminSelectClassToEdit.markup)
-
 if __name__ == '__main__':
     try:
         # scheduler.add_job(dumpDatabase, 'interval', args=[bot, session], weeks=2, start_date=datetime.strptime('2023-12-01 11:00:00', '%Y-%m-%d %H:%M:%S'), end_date=datetime.strptime('2030-12-28 11:00:00', '%Y-%m-%d %H:%M:%S'))
@@ -1133,7 +1172,3 @@ if __name__ == '__main__':
         executor.start_polling(dp, skip_updates=True)
     except (KeyboardInterrupt, SystemExit):
         scheduler.shutdown()
-
-
-# if __name__ == '__main__':
-#     print(get_current_week(datetime.utcnow().date() + timedelta(weeks=1)))
